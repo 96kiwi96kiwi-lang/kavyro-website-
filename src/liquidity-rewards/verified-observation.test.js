@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildVerifiedObservation } from './verified-observation.js';
-import { KAVYRO_LIQUIDITY_REWARDS } from './config.js';
+import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 
-const KVRO = KAVYRO_LIQUIDITY_REWARDS.tokenMint;
-const WSOL = KAVYRO_LIQUIDITY_REWARDS.quoteMint;
+const KVRO = KAVYRO_MINT;
+const WSOL = WRAPPED_SOL_MINT;
 
 const position = Object.freeze({
   wallet: 'wallet-test-1',
