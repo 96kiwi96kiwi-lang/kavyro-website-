@@ -1,0 +1,32 @@
+name: Liquidity Rewards CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/liquidity-rewards/**'
+      - 'package.json'
+      - '.github/workflows/liquidity-rewards-ci.yml'
+  pull_request:
+    paths:
+      - 'src/liquidity-rewards/**'
+      - 'package.json'
+      - '.github/workflows/liquidity-rewards-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: ''
+      - name: Run Liquidity Rewards tests
+        run: npm test
