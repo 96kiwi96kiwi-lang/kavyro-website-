@@ -1,0 +1,11 @@
+{
+  "name": "kavyro-liquidity-rewards",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test src/liquidity-rewards/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
