@@ -4,10 +4,21 @@ import { exportLedgerSnapshot } from './ledger-export.js';
 
 const makeLedger = (snapshot) => ({ snapshot: () => snapshot });
 
+function entry({ wallet, positionId, observationPeriod }) {
+  return {
+    key: `${wallet}:${positionId}:${observationPeriod}`,
+    wallet,
+    positionId,
+    observationPeriod,
+    poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
+    status: 'RECORDED',
+  };
+}
+
 test('exports a deterministic sorted audit-only snapshot', () => {
   const ledger = makeLedger([
-    { key: 'wallet-b:position-2:period-1', wallet: 'wallet-b', positionId: 'position-2', observationPeriod: 'period-1', poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION', status: 'OBSERVED' },
-    { key: 'wallet-a:position-1:period-1', wallet: 'wallet-a', positionId: 'position-1', observationPeriod: 'period-1', poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION', status: 'OBSERVED' },
+    entry({ wallet: 'wallet-b', positionId: 'position-2', observationPeriod: 1 }),
+    entry({ wallet: 'wallet-a', positionId: 'position-1', observationPeriod: 1 }),
   ]);
 
   const exported = exportLedgerSnapshot(ledger);
@@ -15,9 +26,9 @@ test('exports a deterministic sorted audit-only snapshot', () => {
   assert.equal(exported.schemaVersion, 1);
   assert.equal(exported.payoutAuthorized, false);
   assert.equal(exported.entryCount, 2);
-  assert.deepEqual(exported.entries.map((entry) => entry.key), [
-    'wallet-a:position-1:period-1',
-    'wallet-b:position-2:period-1',
+  assert.deepEqual(exported.entries.map((item) => item.key), [
+    'wallet-a:position-1:1',
+    'wallet-b:position-2:1',
   ]);
   assert.ok(Object.isFrozen(exported));
   assert.ok(Object.isFrozen(exported.entries));
@@ -25,15 +36,18 @@ test('exports a deterministic sorted audit-only snapshot', () => {
 });
 
 test('does not expose transaction or signing authorization fields', () => {
-  const exported = exportLedgerSnapshot(makeLedger([
-    { key: 'wallet:position:period', wallet: 'wallet', positionId: 'position', observationPeriod: 'period', poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION', status: 'OBSERVED', privateKey: 'must-not-export', signedTransaction: 'must-not-export', payoutAuthorized: true },
-  ]));
+  const exported = exportLedgerSnapshot(makeLedger([{
+    ...entry({ wallet: 'wallet', positionId: 'position', observationPeriod: 1 }),
+    privateKey: 'must-not-export',
+    signedTransaction: 'must-not-export',
+    payoutAuthorized: true,
+  }]));
 
-  const entry = exported.entries[0];
+  const exportedEntry = exported.entries[0];
   assert.equal(exported.payoutAuthorized, false);
-  assert.equal('privateKey' in entry, false);
-  assert.equal('signedTransaction' in entry, false);
-  assert.equal('payoutAuthorized' in entry, false);
+  assert.equal('privateKey' in exportedEntry, false);
+  assert.equal('signedTransaction' in exportedEntry, false);
+  assert.equal('payoutAuthorized' in exportedEntry, false);
 });
 
 test('rejects invalid ledger interfaces and snapshots', () => {
