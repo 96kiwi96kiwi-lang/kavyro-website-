@@ -9,7 +9,7 @@ const WSOL = WRAPPED_SOL_MINT;
 const position = Object.freeze({
   wallet: 'wallet-test-1',
   positionId: 'lp-position-test-1',
-  observationPeriod: '2026-09-17',
+  observationPeriod: 1,
   eligible: true,
 });
 
@@ -17,9 +17,9 @@ function verifiedCandidate(overrides = {}) {
   return {
     poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
     poolType: 'CLMM',
-    tokenMintA: KVRO,
-    tokenMintB: WSOL,
-    existsOnChain: true,
+    mintA: KVRO,
+    mintB: WSOL,
+    onChainExists: true,
     ...overrides,
   };
 }
@@ -34,14 +34,14 @@ test('builds an immutable observation only after validator approval', () => {
 
 test('rejects caller-supplied verified boolean when pool data is invalid', () => {
   assert.throws(() => buildVerifiedObservation({
-    candidatePool: verifiedCandidate({ tokenMintA: 'FOREIGN_MINT', poolVerified: true }),
+    candidatePool: verifiedCandidate({ mintA: 'FOREIGN_MINT', poolVerified: true }),
     position,
   }), /POOL_NOT_VERIFIED/);
 });
 
 test('rejects missing on-chain existence confirmation', () => {
   assert.throws(() => buildVerifiedObservation({
-    candidatePool: verifiedCandidate({ existsOnChain: false }),
+    candidatePool: verifiedCandidate({ onChainExists: false }),
     position,
   }), /POOL_NOT_VERIFIED/);
 });
