@@ -27,11 +27,24 @@ export async function collectSafeObservations(provider) {
 
   const observations = [];
   const rejected = [];
+  const seenPoolIds = new Set();
 
   for (const candidate of discovery.candidates ?? []) {
     const checked = enforceObservationSafety(candidate);
-    if (checked.ok) observations.push(checked.observation);
-    else rejected.push(...checked.reasons);
+    if (!checked.ok) {
+      rejected.push(...checked.reasons);
+      continue;
+    }
+
+    // A pool must appear at most once in a collection. This prevents duplicate
+    // upstream observations from ever becoming duplicate reward inputs later.
+    if (seenPoolIds.has(checked.observation.poolId)) {
+      rejected.push('DUPLICATE_POOL_OBSERVATION');
+      continue;
+    }
+
+    seenPoolIds.add(checked.observation.poolId);
+    observations.push(checked.observation);
   }
 
   return Object.freeze({
