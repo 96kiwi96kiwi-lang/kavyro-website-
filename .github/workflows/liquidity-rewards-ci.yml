@@ -6,11 +6,13 @@ on:
     paths:
       - 'src/liquidity-rewards/**'
       - 'package.json'
+      - 'jsconfig.json'
       - '.github/workflows/liquidity-rewards-ci.yml'
   pull_request:
     paths:
       - 'src/liquidity-rewards/**'
       - 'package.json'
+      - 'jsconfig.json'
       - '.github/workflows/liquidity-rewards-ci.yml'
 
 permissions:
@@ -28,5 +30,9 @@ jobs:
         with:
           node-version: '20'
           cache: ''
+      - name: Install type checker
+        run: npm install --no-audit --no-fund
+      - name: Type-check Liquidity Rewards
+        run: npm run typecheck
       - name: Run Liquidity Rewards tests
         run: npm test
