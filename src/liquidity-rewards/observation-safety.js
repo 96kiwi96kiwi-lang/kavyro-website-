@@ -1,3 +1,5 @@
+import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
+
 const DENIED = Object.freeze({
   ok: false,
   observation: null,
@@ -19,6 +21,11 @@ export function enforceObservationSafety(observation) {
 
   if (!source || !poolId || !mintA || !mintB || observation.onChainExists !== true) {
     return { ...DENIED, reasons: ['OBSERVATION_UNVERIFIED'] };
+  }
+
+  const observedMints = [mintA, mintB];
+  if (!observedMints.includes(KAVYRO_MINT) || !observedMints.includes(WRAPPED_SOL_MINT)) {
+    return { ...DENIED, reasons: ['OBSERVATION_UNEXPECTED_MINTS'] };
   }
 
   return {
