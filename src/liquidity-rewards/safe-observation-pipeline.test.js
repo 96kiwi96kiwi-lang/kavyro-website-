@@ -59,3 +59,24 @@ test('fails closed when the provider contract is invalid', async () => {
   assert.equal(result.canSignTransaction, false);
   assert.equal(result.canSendTransaction, false);
 });
+
+test('keeps one observation per pool and rejects duplicates fail closed', async () => {
+  const candidate = {
+    poolId: TEST_POOL,
+    mintA: KAVYRO_MINT,
+    mintB: WRAPPED_SOL_MINT,
+    onChainExists: true,
+  };
+
+  const result = await collectSafeObservations(providerFor([candidate, { ...candidate }]));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.observations.length, 1);
+  assert.equal(result.observations[0].poolId, TEST_POOL);
+  assert.equal(result.rejectedCount, 1);
+  assert.deepEqual(result.reasons, ['DUPLICATE_POOL_OBSERVATION']);
+  assert.equal(result.payoutAuthorized, false);
+  assert.equal(result.canBuildTransaction, false);
+  assert.equal(result.canSignTransaction, false);
+  assert.equal(result.canSendTransaction, false);
+});
