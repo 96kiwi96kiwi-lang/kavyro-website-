@@ -1,11 +1,9 @@
-'use strict';
-
 /**
  * Fail-closed boundary between calculated reward entitlements and any future
  * payout implementation. This module intentionally cannot build, sign or send
  * a Solana transaction.
  */
-function evaluatePayoutGate({ config, entitlement } = {}) {
+export function evaluatePayoutGate({ config, entitlement } = {}) {
   const reasons = [];
 
   if (!config || config.enabled !== true) reasons.push('REWARDS_DISABLED');
@@ -34,5 +32,3 @@ function evaluatePayoutGate({ config, entitlement } = {}) {
     reasons: Object.freeze(reasons),
   });
 }
-
-module.exports = { evaluatePayoutGate };
