@@ -9,17 +9,35 @@ const DENIED = Object.freeze({
   canSendTransaction: false,
 });
 
+/**
+ * @typedef {object} ObservationCandidate
+ * @property {unknown} [source]
+ * @property {unknown} [poolId]
+ * @property {unknown} [mintA]
+ * @property {unknown} [mintB]
+ * @property {unknown} [onChainExists]
+ */
+
+/**
+ * Fail-closed normalization boundary for an already independently verified
+ * read-only observation. This function cannot authorize payouts or expose any
+ * transaction capability.
+ *
+ * @param {unknown} observation
+ */
 export function enforceObservationSafety(observation) {
   if (!observation || typeof observation !== 'object') {
     return { ...DENIED, reasons: ['OBSERVATION_INVALID'] };
   }
 
-  const source = typeof observation.source === 'string' ? observation.source.trim() : '';
-  const poolId = typeof observation.poolId === 'string' ? observation.poolId.trim() : '';
-  const mintA = typeof observation.mintA === 'string' ? observation.mintA.trim() : '';
-  const mintB = typeof observation.mintB === 'string' ? observation.mintB.trim() : '';
+  /** @type {ObservationCandidate} */
+  const candidate = observation;
+  const source = typeof candidate.source === 'string' ? candidate.source.trim() : '';
+  const poolId = typeof candidate.poolId === 'string' ? candidate.poolId.trim() : '';
+  const mintA = typeof candidate.mintA === 'string' ? candidate.mintA.trim() : '';
+  const mintB = typeof candidate.mintB === 'string' ? candidate.mintB.trim() : '';
 
-  if (!source || !poolId || !mintA || !mintB || observation.onChainExists !== true) {
+  if (!source || !poolId || !mintA || !mintB || candidate.onChainExists !== true) {
     return { ...DENIED, reasons: ['OBSERVATION_UNVERIFIED'] };
   }
 
