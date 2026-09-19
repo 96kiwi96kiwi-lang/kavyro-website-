@@ -9,6 +9,15 @@ export const POOL_STATUS = Object.freeze({
   VERIFIED: 'POOL_VERIFIED',
 });
 
+/**
+ * @typedef {object} LiquidityRewardsConfig
+ * @property {boolean} enabled
+ * @property {string | null} poolId
+ * @property {typeof POOL_STATUS[keyof typeof POOL_STATUS]} poolStatus
+ * @property {readonly string[]} expectedMints
+ */
+
+/** @type {Readonly<LiquidityRewardsConfig>} */
 export const liquidityRewardsConfig = Object.freeze({
   enabled: false,
   poolId: null,
@@ -16,6 +25,14 @@ export const liquidityRewardsConfig = Object.freeze({
   expectedMints: Object.freeze([KAVYRO_MINT, WRAPPED_SOL_MINT]),
 });
 
+/**
+ * Fail closed unless rewards are explicitly enabled and the pool has already
+ * crossed the independent verification boundary. This function authorizes no
+ * payout and exposes no transaction capability.
+ *
+ * @param {LiquidityRewardsConfig} [config]
+ * @returns {true}
+ */
 export function assertRewardsCanRun(config = liquidityRewardsConfig) {
   if (config.enabled !== true) {
     throw new Error('LIQUIDITY_REWARDS_DISABLED');
