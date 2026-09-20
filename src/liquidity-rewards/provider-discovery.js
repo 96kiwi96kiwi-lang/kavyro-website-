@@ -31,7 +31,6 @@ const DENIED = Object.freeze({
  * or payout authorization.
  *
  * @param {unknown} provider
- * @returns {Promise<unknown>}
  */
 export async function discoverFromReadOnlyProvider(provider) {
   if (!provider || typeof provider !== 'object') {

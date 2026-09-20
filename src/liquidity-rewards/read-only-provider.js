@@ -36,6 +36,7 @@ export function createReadOnlyPoolProvider(input) {
       signTransaction: false,
       sendTransaction: false,
     }),
+    /** @returns {Promise<Readonly<PoolCandidate & {source: string}>[]>} */
     async readPoolCandidates() {
       const result = await fetchReadOnlyCandidates();
       if (!Array.isArray(result)) {

@@ -4,6 +4,7 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 import { createRaydiumCpmmPoolReader, RAYDIUM_CPMM_PROGRAM_ID, RAYDIUM_CPMM_POOL_STATE_DISCRIMINATOR } from './raydium-cpmm-pool-reader.js';
 
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+/** @param {string} value */
 function base58Decode(value) {
   const bytes = [0];
   for (const char of value) {
@@ -42,6 +43,7 @@ const raw = (overrides = {}) => ({
 test('decodes canonical mint pair from finalized raw CPMM account data', async () => {
   const reader = createRaydiumCpmmPoolReader({ readRawAccount: async () => raw() });
   const result = await reader.readPoolAccount('pool-candidate');
+  assert.equal(result.exists, true);
   assert.equal(result.mintA, KAVYRO_MINT);
   assert.equal(result.mintB, WRAPPED_SOL_MINT);
   assert.equal(result.owner, RAYDIUM_CPMM_PROGRAM_ID);

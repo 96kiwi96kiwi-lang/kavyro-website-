@@ -64,7 +64,7 @@ export async function collectSafeObservations(provider) {
 
   for (const candidate of discovery.candidates ?? []) {
     const checked = enforceObservationSafety(candidate);
-    if (!checked.ok) {
+    if (!checked.ok || !checked.observation) {
       rejected.push(...checked.reasons);
       continue;
     }

@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { exportLedgerSnapshot } from './ledger-export.js';
 
+/** @param {unknown} snapshot */
 const makeLedger = (snapshot) => ({ snapshot: () => snapshot });
 
+/** @param {{wallet: string, positionId: string, observationPeriod: number}} input */
 function entry({ wallet, positionId, observationPeriod }) {
   return {
     key: `${wallet}:${positionId}:${observationPeriod}`,

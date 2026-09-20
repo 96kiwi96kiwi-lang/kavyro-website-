@@ -25,7 +25,12 @@ export function createSolanaJsonRpcAccountReader(options = {}) {
 
   let requestId = 0;
 
-  /** @param {unknown} address */
+  /**
+   * @param {unknown} address
+   * @returns {Promise<Readonly<{exists: false, address: string, contextSlot: unknown}> |
+   * Readonly<{exists: true, address: string, contextSlot: unknown, owner: string,
+   * dataBase64: string, lamports: unknown, executable: boolean, rentEpoch: unknown}>>}
+   */
   const readRawAccount = async (address) => {
     const accountAddress = clean(address);
     if (!accountAddress) throw new TypeError('account address is required');

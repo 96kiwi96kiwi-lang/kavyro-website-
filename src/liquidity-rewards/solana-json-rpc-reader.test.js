@@ -5,18 +5,21 @@ import { createSolanaJsonRpcAccountReader } from './solana-json-rpc-reader.js';
 const POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 
 test('uses only finalized getAccountInfo and exposes no transaction capability', async () => {
-  let request;
+  /** @type {Record<string, unknown>[]} */
+  const requests = [];
   const reader = createSolanaJsonRpcAccountReader({
     rpcUrl: 'https://rpc.invalid',
     fetchImpl: async (_url, init) => {
-      request = JSON.parse(init.body);
+      assert.equal(typeof init.body, 'string');
+      requests.push(JSON.parse(/** @type {string} */ (init.body)));
       return { ok: true, json: async () => ({ result: { context: { slot: 123 }, value: { owner: 'RAYDIUM_PROGRAM_TEST_ONLY', data: ['AQID', 'base64'], lamports: 1, executable: false, rentEpoch: 0 } } }) };
     },
   });
 
   const result = await reader.readRawAccount(POOL);
-  assert.equal(request.method, 'getAccountInfo');
-  assert.deepEqual(request.params, [POOL, { encoding: 'base64', commitment: 'finalized' }]);
+  assert.equal(requests[0].method, 'getAccountInfo');
+  assert.deepEqual(requests[0].params, [POOL, { encoding: 'base64', commitment: 'finalized' }]);
+  assert.equal(result.exists, true);
   assert.equal(result.exists, true);
   assert.equal(result.owner, 'RAYDIUM_PROGRAM_TEST_ONLY');
   assert.equal(result.contextSlot, 123);

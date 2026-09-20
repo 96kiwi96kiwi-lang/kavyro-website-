@@ -9,6 +9,7 @@ const base = Object.freeze({
   positionId: 'TEST_POSITION',
 });
 
+/** @param {number} period */
 function observation(period, amount = 100n) {
   return { ...base, observationPeriod: period, contributedKvroBaseUnits: amount };
 }

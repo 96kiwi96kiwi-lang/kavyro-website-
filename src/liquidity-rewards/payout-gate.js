@@ -5,8 +5,8 @@
  * @property {string} [poolStatus]
  *
  * @typedef {object} PayoutGateEntitlement
- * @property {false} [payoutAuthorized]
- * @property {bigint} [rewardBaseUnits]
+ * @property {unknown} [payoutAuthorized]
+ * @property {unknown} [rewardBaseUnits]
  *
  * @typedef {object} PayoutGateInput
  * @property {PayoutGateConfig} [config]

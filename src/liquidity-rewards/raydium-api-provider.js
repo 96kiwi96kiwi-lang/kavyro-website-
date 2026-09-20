@@ -85,7 +85,7 @@ export function parseRaydiumMintResponse(payload) {
 /**
  * Minimal fetch contract used by this read-only adapter so tests do not need
  * to fake the entire browser Response surface.
- * @typedef {(input: URL, init?: RequestInit) => Promise<{ok: boolean, status?: number, json: () => Promise<unknown>}>} ReadOnlyFetch
+ * @typedef {(input: URL, init?: RequestInit) => Promise<{ok: boolean, status?: number, json?: () => Promise<unknown>}>} ReadOnlyFetch
  */
 
 /**
@@ -106,6 +106,7 @@ export function createRaydiumApiProvider({ fetchImpl = /** @type {ReadOnlyFetch}
 
     const response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' } });
     if (!response.ok) throw new Error(`Raydium discovery HTTP ${response.status ?? 'UNKNOWN'}`);
+    if (typeof response.json !== 'function') throw new Error('Raydium discovery JSON missing');
     return parseRaydiumMintResponse(await response.json());
   };
 

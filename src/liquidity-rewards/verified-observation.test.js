@@ -16,7 +16,7 @@ const position = Object.freeze({
 function verifiedCandidate(overrides = {}) {
   return {
     poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
-    poolType: 'CLMM',
+    poolType: 'CPMM',
     mintA: KVRO,
     mintB: WSOL,
     onChainExists: true,

@@ -5,7 +5,7 @@ export const MIN_CONSECUTIVE_OBSERVATION_PERIODS = 24;
 
 /**
  * @typedef {object} HoldingObservation
- * @property {true} poolVerified
+ * @property {boolean} poolVerified
  * @property {string} poolId
  * @property {string} wallet
  * @property {string} positionId

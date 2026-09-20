@@ -9,7 +9,7 @@ function candidate(overrides = {}) {
   return {
     onChainExists: true,
     poolId: VERIFIED_TEST_POOL_ID,
-    poolType: 'CLMM',
+    poolType: 'CPMM',
     mintA: KAVYRO_MINT,
     mintB: WRAPPED_SOL_MINT,
     ...overrides,
@@ -49,6 +49,12 @@ test('rejects unsupported Raydium pool type', () => {
   assert.equal(result.verified, false);
   assert.equal(result.reason, 'UNSUPPORTED_POOL_TYPE');
   assert.equal(result.poolId, null);
+});
+
+test('rejects CLMM until an independent decoder is implemented', () => {
+  const result = validateRaydiumPool(candidate({ poolType: 'CLMM' }));
+  assert.equal(result.verified, false);
+  assert.equal(result.reason, 'UNSUPPORTED_POOL_TYPE');
 });
 
 test('rejects a different token mint even when ticker could look identical', () => {

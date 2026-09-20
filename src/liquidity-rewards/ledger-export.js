@@ -1,3 +1,5 @@
+import { recordOf } from './input-contracts.js';
+
 // KAVYRO Liquidity Rewards — deterministic, non-custodial ledger export.
 // Produces audit data only. It cannot authorize or execute payouts.
 
@@ -24,10 +26,11 @@ function compareEntries(a, b) {
 /**
  * Export a deterministic audit-only snapshot. This boundary cannot authorize
  * or execute a payout.
- * @param {ReadOnlyLedger} ledger
+ * @param {unknown} input
  */
-export function exportLedgerSnapshot(ledger) {
-  if (!ledger || typeof ledger.snapshot !== 'function') {
+export function exportLedgerSnapshot(input) {
+  const ledger = recordOf(input);
+  if (typeof ledger.snapshot !== 'function') {
     throw new Error('INVALID_LEDGER');
   }
 

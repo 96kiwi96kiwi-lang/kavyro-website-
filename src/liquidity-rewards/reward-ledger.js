@@ -11,8 +11,8 @@
 
 /**
  * @typedef {LedgerIdentity & {
- *   eligible: true,
- *   poolVerified: true,
+ *   eligible: boolean,
+ *   poolVerified: boolean,
  *   poolId: string,
  * }} VerifiedEligibleObservation
  */

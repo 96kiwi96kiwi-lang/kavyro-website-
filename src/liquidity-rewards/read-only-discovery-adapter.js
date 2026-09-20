@@ -11,7 +11,7 @@ import { normalizeDiscoveredPools } from './pool-discovery.js';
  * @returns {Promise<Readonly<{
  *   ok: boolean,
  *   source: string | null,
- *   candidates: readonly unknown[],
+ *   candidates: ReturnType<typeof normalizeDiscoveredPools>,
  *   reasons: readonly string[],
  *   payoutAuthorized: false,
  *   canBuildTransaction: false,
