@@ -9,10 +9,13 @@ const observation = {
   observationPeriod: 7,
 };
 
+/** @param {unknown[]} [initial] */
 function memoryStorage(initial = []) {
+  /** @type {readonly unknown[]} */
   let persisted = initial;
   return {
     load: () => persisted,
+    /** @param {readonly unknown[]} entries */
     save: (entries) => { persisted = entries; },
   };
 }
@@ -31,9 +34,11 @@ test('persists an observation and recovers it after restart', () => {
 
 test('rejects replay after restart without rewriting persistence', () => {
   let saves = 0;
+  /** @type {readonly unknown[]} */
   let persisted = [];
   const storage = {
     load: () => persisted,
+    /** @param {readonly unknown[]} entries */
     save: (entries) => { saves += 1; persisted = entries; },
   };
   createPersistentObservationLedger(storage).record(observation);
