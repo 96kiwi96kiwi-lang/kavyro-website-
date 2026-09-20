@@ -4,7 +4,26 @@
 
 import { normalizeDiscoveredPools } from './pool-discovery.js';
 
-export async function discoverPoolsReadOnly({ fetchPools, source } = {}) {
+/** @typedef {{ fetchPools?: unknown, source?: unknown }} ReadOnlyDiscoveryInput */
+
+/**
+ * @param {unknown} [input]
+ * @returns {Promise<Readonly<{
+ *   ok: boolean,
+ *   source: string | null,
+ *   candidates: readonly unknown[],
+ *   reasons: readonly string[],
+ *   payoutAuthorized: false,
+ *   canBuildTransaction: false,
+ *   canSignTransaction: false,
+ *   canSendTransaction: false
+ * }>>}
+ */
+export async function discoverPoolsReadOnly(input = {}) {
+  /** @type {ReadOnlyDiscoveryInput} */
+  const request = input && typeof input === 'object' ? input : {};
+  const { fetchPools, source } = request;
+
   if (typeof fetchPools !== 'function') {
     return Object.freeze({
       ok: false,
@@ -33,9 +52,11 @@ export async function discoverPoolsReadOnly({ fetchPools, source } = {}) {
   }
 
   try {
-    const records = await fetchPools();
-    if (!Array.isArray(records)) throw new TypeError('READ_ONLY_DISCOVERY_INVALID_RESPONSE');
+    /** @type {unknown} */
+    const response = await fetchPools();
+    if (!Array.isArray(response)) throw new TypeError('READ_ONLY_DISCOVERY_INVALID_RESPONSE');
 
+    const records = response.filter((record) => record !== null && typeof record === 'object');
     const candidates = normalizeDiscoveredPools(records.map((record) => ({
       ...record,
       source: normalizedSource,
