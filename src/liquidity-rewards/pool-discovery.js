@@ -15,7 +15,10 @@ import { createReadOnlyPoolCandidate } from './read-only-boundary.js';
 
 /**
  * Narrow an untrusted discovery record before reading any fields. Discovery is
- * evidence only; it never proves on-chain ownership or authorizes a payout.
+ * evidence only; it never proves on-chain existence, LP ownership, contribution,
+ * eligibility, entitlement, or payout authorization. In particular, a provider
+ * supplied `onChainExists` flag is ignored: only the independent RPC verification
+ * boundary may establish on-chain existence later in the pipeline.
  * @param {unknown} record
  */
 export function normalizeDiscoveredPool(record = {}) {
@@ -29,7 +32,8 @@ export function normalizeDiscoveredPool(record = {}) {
     poolId: input.poolId,
     mintA: input.mintA,
     mintB: input.mintB,
-    onChainExists: input.onChainExists,
+    // Discovery is untrusted. Never promote a provider assertion to RPC proof.
+    onChainExists: false,
   });
 
   const reasons = [...candidate.reasons];
@@ -38,7 +42,8 @@ export function normalizeDiscoveredPool(record = {}) {
   return Object.freeze({
     ...candidate,
     source,
-    candidateVerified: candidate.candidateVerified && source !== null,
+    discoveryOnly: true,
+    candidateVerified: false,
     payoutAuthorized: false,
     canBuildTransaction: false,
     canSignTransaction: false,
