@@ -10,11 +10,17 @@ export const SOLANA_RPC_VERIFICATION_SOURCE = 'SOLANA_RPC_ACCOUNT_VERIFICATION';
 /** @param {unknown} value */
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
-/** @param {{readPoolAccount?: (poolId: string) => Promise<unknown>, allowedProgramOwners?: readonly string[]}} [options] */
-export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwners = [] } = {}) {
+/** @param {unknown} value */
+const safeSlot = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+
+/** @param {{readPoolAccount?: (poolId: string) => Promise<unknown>, allowedProgramOwners?: readonly string[], minimumContextSlot?: number | null}} [options] */
+export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwners = [], minimumContextSlot = null } = {}) {
   if (typeof readPoolAccount !== 'function') throw new TypeError('readPoolAccount must be a function');
   const owners = new Set(allowedProgramOwners.map(clean).filter(Boolean));
   if (owners.size === 0) throw new TypeError('allowedProgramOwners must contain independently verified Raydium program owner(s)');
+  if (minimumContextSlot !== null && safeSlot(minimumContextSlot) === null) {
+    throw new TypeError('minimumContextSlot must be a safe non-negative integer or null');
+  }
 
   /** @param {unknown} input */
   const verifyCandidate = async (input = {}) => {
@@ -31,12 +37,16 @@ export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwn
       return Object.freeze({ verified: false, reason: 'RPC_READ_FAILED' });
     }
 
-    const owner = clean(account?.owner);
-    const mintA = clean(account?.mintA);
-    const mintB = clean(account?.mintB);
+    const owner = clean(account.owner);
+    const mintA = clean(account.mintA);
+    const mintB = clean(account.mintB);
+    const contextSlot = safeSlot(account.contextSlot);
     const pair = new Set([mintA, mintB]);
 
-    if (account?.exists !== true) return Object.freeze({ verified: false, reason: 'POOL_ACCOUNT_NOT_FOUND' });
+    if (account.exists !== true) return Object.freeze({ verified: false, reason: 'POOL_ACCOUNT_NOT_FOUND' });
+    if (minimumContextSlot !== null && (contextSlot === null || contextSlot < minimumContextSlot)) {
+      return Object.freeze({ verified: false, reason: 'STALE_RPC_EVIDENCE' });
+    }
     if (!owners.has(owner)) return Object.freeze({ verified: false, reason: 'UNTRUSTED_PROGRAM_OWNER' });
     if (pair.size !== 2 || !pair.has(KAVYRO_MINT) || !pair.has(WRAPPED_SOL_MINT)) {
       return Object.freeze({ verified: false, reason: 'CANONICAL_MINT_PAIR_MISMATCH' });
@@ -48,6 +58,7 @@ export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwn
       mintA,
       mintB,
       owner,
+      contextSlot,
       onChainExists: true,
       source: SOLANA_RPC_VERIFICATION_SOURCE,
       discoverySource: candidate.source,

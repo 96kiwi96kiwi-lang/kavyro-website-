@@ -7,9 +7,9 @@ const POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 const OWNER = 'TEST_ONLY_RAYDIUM_PROGRAM_OWNER';
 const candidate = { poolId: POOL, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, onChainExists: false, discoveryOnly: true, source: 'TEST_DISCOVERY' };
 
-/** @param {unknown} account */
-function verifier(account) {
-  return createSolanaRpcPoolVerifier({ allowedProgramOwners: [OWNER], readPoolAccount: async () => account });
+/** @param {unknown} account @param {number | null} [minimumContextSlot] */
+function verifier(account, minimumContextSlot = null) {
+  return createSolanaRpcPoolVerifier({ allowedProgramOwners: [OWNER], minimumContextSlot, readPoolAccount: async () => account });
 }
 
 test('accepts only independently read account with canonical mint pair and allowed owner', async () => {
@@ -20,6 +20,17 @@ test('accepts only independently read account with canonical mint pair and allow
   assert.equal(result.canBuildTransaction, false);
   assert.equal(result.canSignTransaction, false);
   assert.equal(result.canSendTransaction, false);
+});
+
+test('rejects stale or missing RPC context when a freshness floor is required', async () => {
+  const stale = await verifier({ exists: true, owner: OWNER, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, contextSlot: 99 }, 100).verifyCandidate(candidate);
+  assert.deepEqual(stale, { verified: false, reason: 'STALE_RPC_EVIDENCE' });
+  const missing = await verifier({ exists: true, owner: OWNER, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT }, 100).verifyCandidate(candidate);
+  assert.deepEqual(missing, { verified: false, reason: 'STALE_RPC_EVIDENCE' });
+  const fresh = await verifier({ exists: true, owner: OWNER, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, contextSlot: 100 }, 100).verifyCandidate(candidate);
+  assert.equal(fresh.verified, true);
+  assert.equal(fresh.contextSlot, 100);
+  assert.equal(fresh.payoutAuthorized, false);
 });
 
 test('rejects untrusted program owner', async () => {
@@ -43,6 +54,7 @@ test('refuses candidates that were not discovery-only and unverified', async () 
   assert.deepEqual(result, { verified: false, reason: 'INVALID_DISCOVERY_CANDIDATE' });
 });
 
-test('requires an explicit independently verified program-owner allowlist', () => {
+test('requires an explicit independently verified program-owner allowlist and valid freshness floor', () => {
   assert.throws(() => createSolanaRpcPoolVerifier({ readPoolAccount: async () => ({}) }), /allowedProgramOwners/);
+  assert.throws(() => createSolanaRpcPoolVerifier({ allowedProgramOwners: [OWNER], minimumContextSlot: -1, readPoolAccount: async () => ({}) }), /minimumContextSlot/);
 });
