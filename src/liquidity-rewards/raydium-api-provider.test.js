@@ -34,10 +34,11 @@ test('parser deduplicates pool ids and fails closed on unsuccessful/malformed pa
 });
 
 test('provider queries by canonical mints and exposes no transaction capabilities', async () => {
-  let requestedUrl;
+  /** @type {URL[]} */
+  const requestedUrls = [];
   const provider = createRaydiumApiProvider({
     fetchImpl: async (url) => {
-      requestedUrl = url;
+      requestedUrls.push(new URL(url));
       return {
         ok: true,
         json: async () => ({
@@ -49,8 +50,8 @@ test('provider queries by canonical mints and exposes no transaction capabilitie
   });
 
   const candidates = await provider.readPoolCandidates();
-  assert.equal(requestedUrl.searchParams.get('mint1'), KAVYRO_MINT);
-  assert.equal(requestedUrl.searchParams.get('mint2'), WRAPPED_SOL_MINT);
+  assert.equal(requestedUrls[0].searchParams.get('mint1'), KAVYRO_MINT);
+  assert.equal(requestedUrls[0].searchParams.get('mint2'), WRAPPED_SOL_MINT);
   assert.equal(candidates.length, 1);
   assert.deepEqual(provider.capabilities, {
     read: true,

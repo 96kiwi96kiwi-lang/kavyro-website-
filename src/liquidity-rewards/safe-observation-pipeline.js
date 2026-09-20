@@ -12,26 +12,59 @@ const DENIED = Object.freeze({
   canSendTransaction: false,
 });
 
+/**
+ * @typedef {Readonly<{
+ *   poolId: string,
+ *   mintA: string,
+ *   mintB: string,
+ *   source?: string,
+ *   onChainExists?: boolean,
+ *   poolVerified?: boolean
+ * }>} SafeObservation
+ */
+
+/**
+ * Collect discovery candidates through the read-only safety boundary. Discovery
+ * and locally safe observations are not proof of LP ownership, contribution,
+ * eligibility, entitlement, or payout authorization. Unknown providers fail
+ * closed in the discovery layer.
+ *
+ * @param {unknown} provider
+ * @returns {Promise<Readonly<{
+ *   ok: boolean,
+ *   source: string | null,
+ *   observations: readonly SafeObservation[],
+ *   reasons: readonly string[],
+ *   rejectedCount?: number,
+ *   payoutAuthorized: false,
+ *   canBuildTransaction: false,
+ *   canSignTransaction: false,
+ *   canSendTransaction: false
+ * }>>}
+ */
 export async function collectSafeObservations(provider) {
   const discovery = await discoverFromReadOnlyProvider(provider);
 
-  if (!discovery?.ok) {
+  if (!discovery.ok) {
     return Object.freeze({
       ok: false,
-      source: discovery?.source ?? null,
-      observations: Object.freeze([]),
-      reasons: Object.freeze(discovery?.reasons ?? ['DISCOVERY_FAILED']),
+      source: discovery.source ?? null,
+      observations: /** @type {readonly SafeObservation[]} */ (Object.freeze([])),
+      reasons: Object.freeze(discovery.reasons ?? ['DISCOVERY_FAILED']),
       ...DENIED,
     });
   }
 
+  /** @type {SafeObservation[]} */
   const observations = [];
+  /** @type {string[]} */
   const rejected = [];
+  /** @type {Set<string>} */
   const seenPoolIds = new Set();
 
   for (const candidate of discovery.candidates ?? []) {
     const checked = enforceObservationSafety(candidate);
-    if (!checked.ok) {
+    if (!checked.ok || !checked.observation) {
       rejected.push(...checked.reasons);
       continue;
     }

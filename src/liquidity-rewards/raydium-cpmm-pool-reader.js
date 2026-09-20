@@ -9,6 +9,17 @@ const TOKEN_1_MINT_OFFSET = TOKEN_0_MINT_OFFSET + 32;
 const MIN_POOL_STATE_BYTES = TOKEN_1_MINT_OFFSET + 32;
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
+/**
+ * @typedef {object} RawPoolAccount
+ * @property {boolean} exists
+ * @property {string} address
+ * @property {string} [owner]
+ * @property {boolean} [executable]
+ * @property {string} [dataBase64]
+ * @property {number} contextSlot
+ */
+
+/** @param {Uint8Array} bytes @returns {string} */
 function base58Encode(bytes) {
   if (!(bytes instanceof Uint8Array)) throw new TypeError('bytes must be Uint8Array');
   if (bytes.length === 0) return '';
@@ -34,10 +45,30 @@ function base58Encode(bytes) {
   return output;
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {Readonly<{exists: false, address: string, contextSlot: number}> | Readonly<{
+ *   exists: true,
+ *   address: string,
+ *   owner: string,
+ *   mintA: string,
+ *   mintB: string,
+ *   contextSlot: number,
+ *   poolType: 'RAYDIUM_CPMM',
+ *   payoutAuthorized: false
+ * }>}
+ */
 function decodePoolState(raw) {
-  if (raw?.exists !== true) return Object.freeze({ exists: false, address: raw?.address, contextSlot: raw?.contextSlot });
-  if (raw.owner !== RAYDIUM_CPMM_PROGRAM_ID) throw new Error('Raydium CPMM program owner mismatch');
-  if (raw.executable === true) throw new Error('Pool state account must not be executable');
+  if (!raw || typeof raw !== 'object' || !('exists' in raw) || !('address' in raw) || !('contextSlot' in raw) ||
+      typeof raw.address !== 'string' || typeof raw.contextSlot !== 'number') {
+    throw new Error('Invalid raw pool account');
+  }
+  if (raw.exists !== true) return Object.freeze({ exists: false, address: raw.address, contextSlot: raw.contextSlot });
+  if (!('owner' in raw) || typeof raw.owner !== 'string' || raw.owner !== RAYDIUM_CPMM_PROGRAM_ID) {
+    throw new Error('Raydium CPMM program owner mismatch');
+  }
+  if ('executable' in raw && raw.executable === true) throw new Error('Pool state account must not be executable');
+  if (!('dataBase64' in raw) || typeof raw.dataBase64 !== 'string') throw new Error('Invalid pool account base64');
 
   let data;
   try {
@@ -62,9 +93,13 @@ function decodePoolState(raw) {
   });
 }
 
+/**
+ * @param {{readRawAccount?: (poolId: string) => Promise<unknown>}} [options]
+ */
 export function createRaydiumCpmmPoolReader({ readRawAccount } = {}) {
   if (typeof readRawAccount !== 'function') throw new TypeError('readRawAccount must be a function');
   return Object.freeze({
+    /** @param {string} poolId */
     readPoolAccount: async (poolId) => decodePoolState(await readRawAccount(poolId)),
     capabilities: Object.freeze({ read: true, buildTransaction: false, signTransaction: false, sendTransaction: false }),
   });

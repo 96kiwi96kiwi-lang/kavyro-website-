@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { verifyLedgerIntegrity } from './ledger-integrity.js';
 
+/** @param {unknown} entries */
 function ledgerWith(entries) {
   return { snapshot: () => entries };
 }

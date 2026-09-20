@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test src/liquidity-rewards/*.test.js"
+    "test": "node --test src/liquidity-rewards/*.test.js",
+    "typecheck": "tsc -p jsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "24.5.2",
+    "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=20"

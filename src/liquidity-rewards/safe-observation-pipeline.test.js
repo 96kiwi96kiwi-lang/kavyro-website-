@@ -8,6 +8,7 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 const TEST_SOURCE = 'TEST_FIXTURE_NOT_PRODUCTION';
 const TEST_POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 
+/** @param {unknown} candidates */
 function providerFor(candidates) {
   return createReadOnlyPoolProvider({
     source: TEST_SOURCE,

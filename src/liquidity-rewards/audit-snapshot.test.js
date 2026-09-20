@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createVerifiedAuditSnapshot } from './audit-snapshot.js';
 
+/** @param {unknown} entries */
 function makeLedger(entries = []) {
   return {
     snapshot() {

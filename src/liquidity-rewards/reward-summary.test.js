@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { summarizeRewardLedger } from './reward-summary.js';
 
+/** @param {unknown} entries */
 function ledgerWith(entries) {
   return { snapshot: () => entries };
 }

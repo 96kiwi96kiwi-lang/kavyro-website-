@@ -6,6 +6,7 @@ import { createRewardLedger } from './reward-ledger.js';
 
 const VERIFIED_POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 
+/** @param {number} timestampSeconds */
 function observationAt(timestampSeconds, overrides = {}) {
   return {
     wallet: 'TEST_WALLET',

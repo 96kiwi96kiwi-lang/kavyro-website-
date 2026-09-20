@@ -9,14 +9,35 @@ import { createReadOnlyPoolProvider } from './read-only-provider.js';
 export const RAYDIUM_API_BASE = 'https://api-v3.raydium.io';
 export const RAYDIUM_DISCOVERY_SOURCE = 'RAYDIUM_API_V3_MINT_DISCOVERY';
 
+/** @param {unknown} value @returns {string} */
 function cleanMint(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeApiPool(pool = {}) {
-  const mintA = cleanMint(pool?.mintA?.address ?? pool?.mintA);
-  const mintB = cleanMint(pool?.mintB?.address ?? pool?.mintB);
-  const poolId = typeof pool?.id === 'string' ? pool.id.trim() : '';
+/** @param {unknown} value @returns {Record<string, unknown> | null} */
+function asRecord(value) {
+  return value !== null && typeof value === 'object' ? /** @type {Record<string, unknown>} */ (value) : null;
+}
+
+/** @param {unknown} value @returns {string} */
+function mintAddress(value) {
+  const record = asRecord(value);
+  return cleanMint(record ? record.address : value);
+}
+
+/**
+ * Normalize untrusted HTTP indexer data into discovery-only evidence.
+ * This never proves that a pool exists on chain and never authorizes payout.
+ * @param {unknown} pool
+ * @returns {Readonly<{poolId: string, mintA: string, mintB: string, onChainExists: false, source: string, discoveryOnly: true}> | null}
+ */
+function normalizeApiPool(pool) {
+  const record = asRecord(pool);
+  if (!record) return null;
+
+  const mintA = mintAddress(record.mintA);
+  const mintB = mintAddress(record.mintB);
+  const poolId = typeof record.id === 'string' ? record.id.trim() : '';
 
   const pair = new Set([mintA, mintB]);
   if (!poolId || pair.size !== 2 || !pair.has(KAVYRO_MINT) || !pair.has(WRAPPED_SOL_MINT)) {
@@ -34,13 +55,20 @@ function normalizeApiPool(pool = {}) {
   });
 }
 
+/**
+ * @param {unknown} payload
+ * @returns {readonly Readonly<{poolId: string, mintA: string, mintB: string, onChainExists: false, source: string, discoveryOnly: true}>[]}
+ */
 export function parseRaydiumMintResponse(payload) {
-  if (payload?.success !== true) return Object.freeze([]);
+  const root = asRecord(payload);
+  if (!root || root.success !== true) return Object.freeze([]);
 
-  const raw = Array.isArray(payload?.data?.data)
-    ? payload.data.data
-    : Array.isArray(payload?.data)
-      ? payload.data
+  const dataRecord = asRecord(root.data);
+  const nestedData = dataRecord?.data;
+  const raw = Array.isArray(nestedData)
+    ? nestedData
+    : Array.isArray(root.data)
+      ? root.data
       : [];
 
   const seen = new Set();
@@ -54,7 +82,16 @@ export function parseRaydiumMintResponse(payload) {
   return Object.freeze(candidates);
 }
 
-export function createRaydiumApiProvider({ fetchImpl = globalThis.fetch, baseUrl = RAYDIUM_API_BASE } = {}) {
+/**
+ * Minimal fetch contract used by this read-only adapter so tests do not need
+ * to fake the entire browser Response surface.
+ * @typedef {(input: URL, init?: RequestInit) => Promise<{ok: boolean, status?: number, json?: () => Promise<unknown>}>} ReadOnlyFetch
+ */
+
+/**
+ * @param {{fetchImpl?: ReadOnlyFetch, baseUrl?: string}} [options]
+ */
+export function createRaydiumApiProvider({ fetchImpl = /** @type {ReadOnlyFetch} */ (globalThis.fetch), baseUrl = RAYDIUM_API_BASE } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
 
   const fetchCandidates = async () => {
@@ -68,7 +105,8 @@ export function createRaydiumApiProvider({ fetchImpl = globalThis.fetch, baseUrl
     url.searchParams.set('page', '1');
 
     const response = await fetchImpl(url, { method: 'GET', headers: { accept: 'application/json' } });
-    if (!response?.ok) throw new Error(`Raydium discovery HTTP ${response?.status ?? 'UNKNOWN'}`);
+    if (!response.ok) throw new Error(`Raydium discovery HTTP ${response.status ?? 'UNKNOWN'}`);
+    if (typeof response.json !== 'function') throw new Error('Raydium discovery JSON missing');
     return parseRaydiumMintResponse(await response.json());
   };
 

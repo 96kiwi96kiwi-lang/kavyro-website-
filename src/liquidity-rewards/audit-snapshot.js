@@ -4,6 +4,19 @@
 import { verifyLedgerIntegrity } from './ledger-integrity.js';
 import { exportLedgerSnapshot } from './ledger-export.js';
 
+/**
+ * @typedef {{ snapshot: () => unknown }} AuditLedger
+ * @typedef {Readonly<{
+ *   valid: false,
+ *   reason: string,
+ *   payoutAuthorized: false
+ * }>} FailedAuditSnapshot
+ */
+
+/**
+ * @param {string} [reason]
+ * @returns {FailedAuditSnapshot}
+ */
 function failedSnapshot(reason = 'INVALID_LEDGER') {
   return Object.freeze({
     valid: false,
@@ -12,6 +25,21 @@ function failedSnapshot(reason = 'INVALID_LEDGER') {
   });
 }
 
+/**
+ * Create an integrity-gated audit view of a read-only ledger. A verified audit
+ * snapshot is evidence for inspection only and can never authorize payout.
+ * Unknown or malformed ledger inputs fail closed.
+ *
+ * @param {unknown} ledger
+ * @returns {FailedAuditSnapshot | Readonly<{
+ *   valid: true,
+ *   reason: 'VERIFIED_AUDIT_SNAPSHOT',
+ *   schemaVersion: unknown,
+ *   entryCount: unknown,
+ *   entries: unknown,
+ *   payoutAuthorized: false
+ * }>}
+ */
 export function createVerifiedAuditSnapshot(ledger) {
   let integrity;
 
@@ -25,8 +53,12 @@ export function createVerifiedAuditSnapshot(ledger) {
     return failedSnapshot(integrity.reason);
   }
 
+  if (!ledger || typeof ledger !== 'object' || !('snapshot' in ledger) || typeof ledger.snapshot !== 'function') {
+    return failedSnapshot();
+  }
+
   try {
-    const exported = exportLedgerSnapshot(ledger);
+    const exported = exportLedgerSnapshot(/** @type {AuditLedger} */ (ledger));
 
     return Object.freeze({
       valid: true,

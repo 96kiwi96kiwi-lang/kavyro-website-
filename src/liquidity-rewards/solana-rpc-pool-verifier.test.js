@@ -7,6 +7,7 @@ const POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 const OWNER = 'TEST_ONLY_RAYDIUM_PROGRAM_OWNER';
 const candidate = { poolId: POOL, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, onChainExists: false, discoveryOnly: true, source: 'TEST_DISCOVERY' };
 
+/** @param {unknown} account */
 function verifier(account) {
   return createSolanaRpcPoolVerifier({ allowedProgramOwners: [OWNER], readPoolAccount: async () => account });
 }

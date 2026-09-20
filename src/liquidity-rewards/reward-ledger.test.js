@@ -87,5 +87,5 @@ test('snapshot cannot mutate stored entry objects', () => {
 
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot[0]), true);
-  assert.throws(() => snapshot.push({}), TypeError);
+  assert.throws(() => Array.prototype.push.call(snapshot, {}), TypeError);
 });

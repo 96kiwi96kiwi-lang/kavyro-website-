@@ -22,14 +22,14 @@ test('default configuration cannot run rewards', () => {
 
 test('enabled flag alone cannot bypass pool verification', () => {
   assert.throws(
-    () => assertRewardsCanRun({ enabled: true, poolId: null, poolStatus: POOL_STATUS.UNVERIFIED }),
+    () => assertRewardsCanRun({ ...liquidityRewardsConfig, enabled: true, poolId: null, poolStatus: POOL_STATUS.UNVERIFIED }),
     /POOL_NOT_VERIFIED/,
   );
 });
 
 test('verified status without a pool id remains blocked', () => {
   assert.throws(
-    () => assertRewardsCanRun({ enabled: true, poolId: null, poolStatus: POOL_STATUS.VERIFIED }),
+    () => assertRewardsCanRun({ ...liquidityRewardsConfig, enabled: true, poolId: null, poolStatus: POOL_STATUS.VERIFIED }),
     /POOL_NOT_VERIFIED/,
   );
 });

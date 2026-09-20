@@ -3,16 +3,61 @@
 
 export const MIN_CONSECUTIVE_OBSERVATION_PERIODS = 24;
 
+/**
+ * @typedef {object} HoldingObservation
+ * @property {boolean} poolVerified
+ * @property {string} poolId
+ * @property {string} wallet
+ * @property {string} positionId
+ * @property {number} observationPeriod
+ * @property {bigint} contributedKvroBaseUnits
+ */
+
+/**
+ * @typedef {object} HoldingEligibilityInput
+ * @property {HoldingObservation[]} observations
+ * @property {number} [minimumPeriods]
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 function requirePeriod(value) {
-  if (!Number.isSafeInteger(value) || value < 0) throw new Error('INVALID_OBSERVATION_PERIOD');
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error('INVALID_OBSERVATION_PERIOD');
+  }
   return value;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {bigint}
+ */
 function requirePositiveBigInt(value) {
   if (typeof value !== 'bigint' || value <= 0n) throw new Error('INVALID_LP_AMOUNT');
   return value;
 }
 
+/**
+ * Evaluate whether one already-verified LP position has been observed for a
+ * continuous minimum number of periods. This is an entitlement/eligibility
+ * boundary only: a successful result never authorizes payout.
+ *
+ * @param {HoldingEligibilityInput} input
+ * @returns {Readonly<{
+ *   eligible: boolean,
+ *   wallet: string,
+ *   positionId: string,
+ *   poolId: string,
+ *   firstObservationPeriod: number,
+ *   lastObservationPeriod: number,
+ *   consecutivePeriods: number,
+ *   minimumContributionKvroBaseUnits: bigint,
+ *   reason: 'SUSTAINED_HOLDING_VERIFIED' | 'INSUFFICIENT_HOLDING_PERIOD',
+ *   payoutAuthorized: false
+ * }>}
+ */
 export function evaluateHoldingEligibility({ observations, minimumPeriods = MIN_CONSECUTIVE_OBSERVATION_PERIODS }) {
   if (!Array.isArray(observations) || observations.length === 0) throw new Error('OBSERVATIONS_REQUIRED');
   if (!Number.isSafeInteger(minimumPeriods) || minimumPeriods < 2) throw new Error('INVALID_MINIMUM_PERIODS');
@@ -52,7 +97,7 @@ export function evaluateHoldingEligibility({ observations, minimumPeriods = MIN_
     positionId: first.positionId,
     poolId: first.poolId,
     firstObservationPeriod: first.observationPeriod,
-    lastObservationPeriod: normalized.at(-1).observationPeriod,
+    lastObservationPeriod: normalized[normalized.length - 1].observationPeriod,
     consecutivePeriods: normalized.length,
     minimumContributionKvroBaseUnits: minimumContribution,
     reason: eligible ? 'SUSTAINED_HOLDING_VERIFIED' : 'INSUFFICIENT_HOLDING_PERIOD',

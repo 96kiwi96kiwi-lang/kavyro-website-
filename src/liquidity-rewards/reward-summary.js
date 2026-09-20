@@ -1,13 +1,43 @@
 // KAVYRO Liquidity Rewards — read-only deterministic ledger summary.
 // This module never authorizes payouts, signs transactions, or discovers pools.
 
+/**
+ * @typedef {Readonly<{
+ *   wallet: string,
+ *   positionId: string,
+ *   observationPeriod: number,
+ *   status: 'RECORDED'
+ * }>} RewardSummaryEntry
+ *
+ * @typedef {Readonly<{
+ *   snapshot: () => readonly RewardSummaryEntry[]
+ * }>} ReadOnlyRewardSummaryLedger
+ */
+
+/**
+ * Fail closed at the summary boundary. A summary is reporting only: accepting a
+ * ledger here never proves LP ownership/contribution and never authorizes payout.
+ *
+ * @param {unknown} ledger
+ * @returns {ReadOnlyRewardSummaryLedger}
+ */
 function requireLedger(ledger) {
-  if (!ledger || typeof ledger.snapshot !== 'function') {
+  if (!ledger || typeof ledger !== 'object' || !('snapshot' in ledger) || typeof ledger.snapshot !== 'function') {
     throw new Error('INVALID_LEDGER');
   }
-  return ledger;
+  return /** @type {ReadOnlyRewardSummaryLedger} */ (ledger);
 }
 
+/**
+ * @param {unknown} ledger
+ * @returns {Readonly<{
+ *   recordedObservations: number,
+ *   uniqueWallets: number,
+ *   uniquePositions: number,
+ *   observedPeriods: number,
+ *   payoutAuthorized: false
+ * }>}
+ */
 export function summarizeRewardLedger(ledger) {
   const entries = requireLedger(ledger).snapshot();
   if (!Array.isArray(entries)) {

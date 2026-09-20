@@ -4,16 +4,32 @@
 
 import { createReadOnlyPoolCandidate } from './read-only-boundary.js';
 
+/**
+ * @typedef {object} DiscoveredPoolRecord
+ * @property {unknown} [source]
+ * @property {unknown} [poolId]
+ * @property {unknown} [mintA]
+ * @property {unknown} [mintB]
+ * @property {unknown} [onChainExists]
+ */
+
+/**
+ * Narrow an untrusted discovery record before reading any fields. Discovery is
+ * evidence only; it never proves on-chain ownership or authorizes a payout.
+ * @param {unknown} record
+ */
 export function normalizeDiscoveredPool(record = {}) {
-  const source = typeof record.source === 'string' && record.source.trim()
-    ? record.source.trim()
+  /** @type {DiscoveredPoolRecord} */
+  const input = record && typeof record === 'object' ? record : {};
+  const source = typeof input.source === 'string' && input.source.trim()
+    ? input.source.trim()
     : null;
 
   const candidate = createReadOnlyPoolCandidate({
-    poolId: record.poolId,
-    mintA: record.mintA,
-    mintB: record.mintB,
-    onChainExists: record.onChainExists,
+    poolId: input.poolId,
+    mintA: input.mintA,
+    mintB: input.mintB,
+    onChainExists: input.onChainExists,
   });
 
   const reasons = [...candidate.reasons];
@@ -31,6 +47,9 @@ export function normalizeDiscoveredPool(record = {}) {
   });
 }
 
+/**
+ * @param {unknown} records
+ */
 export function normalizeDiscoveredPools(records) {
   if (!Array.isArray(records)) return Object.freeze([]);
   return Object.freeze(records.map((record) => normalizeDiscoveredPool(record)));

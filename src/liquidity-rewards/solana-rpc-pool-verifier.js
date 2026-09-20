@@ -1,3 +1,5 @@
+import { recordOf } from './input-contracts.js';
+
 // Independent, read-only Solana RPC verification boundary for Raydium pool candidates.
 // The RPC transport is injected; this module cannot build, sign, or send transactions.
 
@@ -5,14 +7,18 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 
 export const SOLANA_RPC_VERIFICATION_SOURCE = 'SOLANA_RPC_ACCOUNT_VERIFICATION';
 
+/** @param {unknown} value */
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
+/** @param {{readPoolAccount?: (poolId: string) => Promise<unknown>, allowedProgramOwners?: readonly string[]}} [options] */
 export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwners = [] } = {}) {
   if (typeof readPoolAccount !== 'function') throw new TypeError('readPoolAccount must be a function');
   const owners = new Set(allowedProgramOwners.map(clean).filter(Boolean));
   if (owners.size === 0) throw new TypeError('allowedProgramOwners must contain independently verified Raydium program owner(s)');
 
-  const verifyCandidate = async (candidate = {}) => {
+  /** @param {unknown} input */
+  const verifyCandidate = async (input = {}) => {
+    const candidate = recordOf(input);
     const poolId = clean(candidate.poolId);
     if (!poolId || candidate.discoveryOnly !== true || candidate.onChainExists !== false) {
       return Object.freeze({ verified: false, reason: 'INVALID_DISCOVERY_CANDIDATE' });
@@ -20,7 +26,7 @@ export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwn
 
     let account;
     try {
-      account = await readPoolAccount(poolId);
+      account = recordOf(await readPoolAccount(poolId));
     } catch {
       return Object.freeze({ verified: false, reason: 'RPC_READ_FAILED' });
     }
