@@ -1,6 +1,6 @@
 // KAVYRO Liquidity Rewards — fail-closed read-only observation pipeline.
-// This module composes provider discovery with observation safety validation.
-// It never authorizes payouts or exposes transaction capabilities.
+// This module composes provider discovery with independent RPC verification and
+// observation safety validation. It never authorizes payouts or exposes transaction capabilities.
 
 import { discoverFromReadOnlyProvider } from './provider-discovery.js';
 import { enforceObservationSafety } from './observation-safety.js';
@@ -21,15 +21,18 @@ const DENIED = Object.freeze({
  *   onChainExists?: boolean,
  *   poolVerified?: boolean
  * }>} SafeObservation
+ * @typedef {{ verifyCandidate: (candidate: unknown) => Promise<unknown> }} ReadOnlyPoolVerifier
  */
 
 /**
- * Collect discovery candidates through the read-only safety boundary. Discovery
- * and locally safe observations are not proof of LP ownership, contribution,
- * eligibility, entitlement, or payout authorization. Unknown providers fail
- * closed in the discovery layer.
+ * Collect discovery candidates through an independent RPC verification boundary
+ * before observation safety validation. Discovery, RPC pool verification, and
+ * locally safe observations are not proof of LP ownership, contribution,
+ * eligibility, entitlement, or payout authorization. Missing/malformed verifier
+ * input fails closed.
  *
  * @param {unknown} provider
+ * @param {unknown} verifier
  * @returns {Promise<Readonly<{
  *   ok: boolean,
  *   source: string | null,
@@ -42,7 +45,7 @@ const DENIED = Object.freeze({
  *   canSendTransaction: false
  * }>>}
  */
-export async function collectSafeObservations(provider) {
+export async function collectSafeObservations(provider, verifier) {
   const discovery = await discoverFromReadOnlyProvider(provider);
 
   if (!discovery.ok) {
@@ -55,6 +58,18 @@ export async function collectSafeObservations(provider) {
     });
   }
 
+  if (!verifier || typeof verifier !== 'object' || !('verifyCandidate' in verifier) || typeof verifier.verifyCandidate !== 'function') {
+    return Object.freeze({
+      ok: false,
+      source: discovery.source,
+      observations: /** @type {readonly SafeObservation[]} */ (Object.freeze([])),
+      reasons: Object.freeze(['RPC_VERIFIER_REQUIRED']),
+      ...DENIED,
+    });
+  }
+
+  /** @type {ReadOnlyPoolVerifier} */
+  const poolVerifier = verifier;
   /** @type {SafeObservation[]} */
   const observations = [];
   /** @type {string[]} */
@@ -63,14 +78,28 @@ export async function collectSafeObservations(provider) {
   const seenPoolIds = new Set();
 
   for (const candidate of discovery.candidates ?? []) {
-    const checked = enforceObservationSafety(candidate);
+    let verification;
+    try {
+      verification = await poolVerifier.verifyCandidate(candidate);
+    } catch {
+      rejected.push('RPC_VERIFICATION_FAILED');
+      continue;
+    }
+
+    if (!verification || typeof verification !== 'object' || !('verified' in verification) || verification.verified !== true) {
+      const reason = verification && typeof verification === 'object' && 'reason' in verification && typeof verification.reason === 'string'
+        ? verification.reason
+        : 'RPC_VERIFICATION_FAILED';
+      rejected.push(reason);
+      continue;
+    }
+
+    const checked = enforceObservationSafety(verification);
     if (!checked.ok || !checked.observation) {
       rejected.push(...checked.reasons);
       continue;
     }
 
-    // A pool must appear at most once in a collection. This prevents duplicate
-    // upstream observations from ever becoming duplicate reward inputs later.
     if (seenPoolIds.has(checked.observation.poolId)) {
       rejected.push('DUPLICATE_POOL_OBSERVATION');
       continue;
