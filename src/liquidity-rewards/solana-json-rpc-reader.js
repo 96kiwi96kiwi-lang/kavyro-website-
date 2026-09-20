@@ -1,15 +1,31 @@
 // Read-only Solana JSON-RPC account reader.
 // This transport only calls getAccountInfo and cannot build, sign, or send transactions.
 
+/** @param {unknown} value @returns {string} */
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
-export function createSolanaJsonRpcAccountReader({ rpcUrl, fetchImpl = globalThis.fetch } = {}) {
-  const endpoint = clean(rpcUrl);
+/**
+ * @typedef {{ok: boolean, status?: number, json?: () => Promise<unknown>}} ReadOnlyHttpResponse
+ * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
+ * @typedef {{rpcUrl?: unknown, fetchImpl?: ReadOnlyFetch}} SolanaJsonRpcReaderOptions
+ */
+
+/**
+ * @param {SolanaJsonRpcReaderOptions} [options]
+ */
+export function createSolanaJsonRpcAccountReader(options = {}) {
+  const endpoint = clean(options.rpcUrl);
   if (!endpoint) throw new TypeError('rpcUrl is required');
+
+  /** @type {ReadOnlyFetch | undefined} */
+  const fetchImpl = options.fetchImpl ?? (typeof globalThis.fetch === 'function'
+    ? /** @type {ReadOnlyFetch} */ (globalThis.fetch)
+    : undefined);
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
 
   let requestId = 0;
 
+  /** @param {unknown} address */
   const readRawAccount = async (address) => {
     const accountAddress = clean(address);
     if (!accountAddress) throw new TypeError('account address is required');
@@ -25,16 +41,27 @@ export function createSolanaJsonRpcAccountReader({ rpcUrl, fetchImpl = globalThi
       }),
     });
 
-    if (!response?.ok) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+    if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+    if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
+
     const payload = await response.json();
-    if (payload?.error) throw new Error('Solana RPC returned an error');
+    if (!payload || typeof payload !== 'object') throw new Error('Malformed Solana RPC response');
+    if ('error' in payload && payload.error) throw new Error('Solana RPC returned an error');
+    if (!('result' in payload) || !payload.result || typeof payload.result !== 'object') {
+      throw new Error('Malformed Solana RPC response');
+    }
 
-    const contextSlot = payload?.result?.context?.slot;
-    const value = payload?.result?.value;
+    const result = payload.result;
+    const contextSlot = 'context' in result && result.context && typeof result.context === 'object' && 'slot' in result.context
+      ? result.context.slot
+      : undefined;
+    const value = 'value' in result ? result.value : undefined;
     if (value == null) return Object.freeze({ exists: false, address: accountAddress, contextSlot });
+    if (typeof value !== 'object') throw new Error('Malformed Solana account response');
 
-    const owner = clean(value.owner);
-    const encoded = Array.isArray(value.data) ? value.data[0] : '';
+    const owner = clean('owner' in value ? value.owner : undefined);
+    const data = 'data' in value ? value.data : undefined;
+    const encoded = Array.isArray(data) ? data[0] : '';
     if (!owner || typeof encoded !== 'string' || !encoded) throw new Error('Malformed Solana account response');
 
     return Object.freeze({
@@ -43,9 +70,9 @@ export function createSolanaJsonRpcAccountReader({ rpcUrl, fetchImpl = globalThi
       owner,
       dataBase64: encoded,
       contextSlot,
-      lamports: value.lamports,
-      executable: value.executable === true,
-      rentEpoch: value.rentEpoch,
+      lamports: 'lamports' in value ? value.lamports : undefined,
+      executable: 'executable' in value && value.executable === true,
+      rentEpoch: 'rentEpoch' in value ? value.rentEpoch : undefined,
     });
   };
 
