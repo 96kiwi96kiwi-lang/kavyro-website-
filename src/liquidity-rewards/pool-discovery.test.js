@@ -12,12 +12,14 @@ test('discovery fails closed without a provenance source', () => {
   });
 
   assert.equal(result.candidateVerified, false);
+  assert.equal(result.onChainExists, false);
+  assert.ok(result.reasons.includes('POOL_NOT_CONFIRMED_ON_CHAIN'));
   assert.ok(result.reasons.includes('DISCOVERY_SOURCE_MISSING'));
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canSendTransaction, false);
 });
 
-test('discovery can mark a sourced KVRO/wSOL observation as a read-only candidate', () => {
+test('discovery never trusts a provider-supplied onChainExists flag', () => {
   const result = normalizeDiscoveredPool({
     source: 'TEST_FIXTURE_NOT_PRODUCTION',
     poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
@@ -26,7 +28,10 @@ test('discovery can mark a sourced KVRO/wSOL observation as a read-only candidat
     onChainExists: true,
   });
 
-  assert.equal(result.candidateVerified, true);
+  assert.equal(result.discoveryOnly, true);
+  assert.equal(result.onChainExists, false);
+  assert.equal(result.candidateVerified, false);
+  assert.ok(result.reasons.includes('POOL_NOT_CONFIRMED_ON_CHAIN'));
   assert.equal(result.readOnly, true);
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canBuildTransaction, false);
@@ -44,6 +49,7 @@ test('discovery rejects unexpected mint pairs and non-array batches safely', () 
   });
 
   assert.equal(result.candidateVerified, false);
+  assert.equal(result.onChainExists, false);
   assert.ok(result.reasons.includes('UNEXPECTED_POOL_MINTS'));
   assert.deepEqual(normalizeDiscoveredPools(null), []);
 });

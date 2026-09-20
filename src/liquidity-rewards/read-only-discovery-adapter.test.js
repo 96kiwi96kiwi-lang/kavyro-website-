@@ -17,7 +17,7 @@ test('adapter fails closed when source provenance is missing', async () => {
   assert.equal(result.payoutAuthorized, false);
 });
 
-test('adapter normalizes injected read-only observations without authorizing payout', async () => {
+test('adapter keeps injected discovery observations unverified and cannot authorize payout', async () => {
   const result = await discoverPoolsReadOnly({
     source: 'TEST_SOURCE_NOT_PRODUCTION',
     fetchPools: async () => [{
@@ -30,7 +30,9 @@ test('adapter normalizes injected read-only observations without authorizing pay
 
   assert.equal(result.ok, true);
   assert.equal(result.candidates.length, 1);
-  assert.equal(result.candidates[0].candidateVerified, true);
+  assert.equal(result.candidates[0].discoveryOnly, true);
+  assert.equal(result.candidates[0].onChainExists, false);
+  assert.equal(result.candidates[0].candidateVerified, false);
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canBuildTransaction, false);
   assert.equal(result.canSignTransaction, false);
