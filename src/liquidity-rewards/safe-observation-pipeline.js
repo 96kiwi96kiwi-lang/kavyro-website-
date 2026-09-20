@@ -68,8 +68,7 @@ export async function collectSafeObservations(provider, verifier) {
     });
   }
 
-  /** @type {ReadOnlyPoolVerifier} */
-  const poolVerifier = verifier;
+  const verifyCandidate = verifier.verifyCandidate.bind(verifier);
   /** @type {SafeObservation[]} */
   const observations = [];
   /** @type {string[]} */
@@ -80,7 +79,7 @@ export async function collectSafeObservations(provider, verifier) {
   for (const candidate of discovery.candidates ?? []) {
     let verification;
     try {
-      verification = await poolVerifier.verifyCandidate(candidate);
+      verification = await verifyCandidate(candidate);
     } catch {
       rejected.push('RPC_VERIFICATION_FAILED');
       continue;
