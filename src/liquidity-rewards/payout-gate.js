@@ -13,6 +13,8 @@
  * @property {PayoutGateEntitlement} [entitlement]
  */
 
+import { POOL_STATUS } from './config.js';
+
 /**
  * Fail-closed boundary between calculated reward entitlements and any future
  * payout implementation. This module intentionally cannot build, sign or send
@@ -32,7 +34,7 @@ export function evaluatePayoutGate({ config, entitlement } = {}) {
   const reasons = [];
 
   if (!config || config.enabled !== true) reasons.push('REWARDS_DISABLED');
-  if (!config || config.poolStatus !== 'POOL_VERIFIED') reasons.push('POOL_UNVERIFIED');
+  if (!config || config.poolStatus !== POOL_STATUS.VERIFIED) reasons.push('POOL_UNVERIFIED');
   if (!config || typeof config.poolId !== 'string' || config.poolId.trim() === '') {
     reasons.push('POOL_ID_MISSING');
   }
