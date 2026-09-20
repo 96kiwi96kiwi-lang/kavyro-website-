@@ -16,18 +16,22 @@ function providerFor(candidates) {
   });
 }
 
+const rejectingVerifier = Object.freeze({
+  verifyCandidate: async () => Object.freeze({ verified: false, reason: 'TEST_RPC_REJECTED' }),
+});
+
 test('does not promote discovery-only KAVYRO/wSOL data into a safe observation', async () => {
   const result = await collectSafeObservations(providerFor([{
     poolId: TEST_POOL,
     mintA: KAVYRO_MINT,
     mintB: WRAPPED_SOL_MINT,
     onChainExists: true,
-  }]));
+  }]), rejectingVerifier);
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.observations, []);
   assert.equal(result.rejectedCount, 1);
-  assert.deepEqual(result.reasons, ['OBSERVATION_UNVERIFIED']);
+  assert.deepEqual(result.reasons, ['TEST_RPC_REJECTED']);
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canBuildTransaction, false);
   assert.equal(result.canSignTransaction, false);
@@ -40,18 +44,18 @@ test('rejects an unexpected mint pair without leaking it into safe observations'
     mintA: KAVYRO_MINT,
     mintB: 'TEST_WRONG_MINT_NOT_PRODUCTION',
     onChainExists: true,
-  }]));
+  }]), rejectingVerifier);
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.observations, []);
   assert.equal(result.rejectedCount, 1);
-  assert.deepEqual(result.reasons, ['OBSERVATION_UNVERIFIED']);
+  assert.deepEqual(result.reasons, ['TEST_RPC_REJECTED']);
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canSendTransaction, false);
 });
 
 test('fails closed when the provider contract is invalid', async () => {
-  const result = await collectSafeObservations(null);
+  const result = await collectSafeObservations(null, rejectingVerifier);
 
   assert.equal(result.ok, false);
   assert.deepEqual(result.observations, []);
@@ -59,6 +63,16 @@ test('fails closed when the provider contract is invalid', async () => {
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canBuildTransaction, false);
   assert.equal(result.canSignTransaction, false);
+  assert.equal(result.canSendTransaction, false);
+});
+
+test('fails closed when the independent RPC verifier is missing', async () => {
+  const result = await collectSafeObservations(providerFor([]), null);
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.observations, []);
+  assert.deepEqual(result.reasons, ['RPC_VERIFIER_REQUIRED']);
+  assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canSendTransaction, false);
 });
 
@@ -70,12 +84,12 @@ test('rejects duplicate discovery-only candidates without creating observations'
     onChainExists: true,
   };
 
-  const result = await collectSafeObservations(providerFor([candidate, { ...candidate }]));
+  const result = await collectSafeObservations(providerFor([candidate, { ...candidate }]), rejectingVerifier);
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.observations, []);
   assert.equal(result.rejectedCount, 2);
-  assert.deepEqual(result.reasons, ['OBSERVATION_UNVERIFIED', 'OBSERVATION_UNVERIFIED']);
+  assert.deepEqual(result.reasons, ['TEST_RPC_REJECTED', 'TEST_RPC_REJECTED']);
   assert.equal(result.payoutAuthorized, false);
   assert.equal(result.canBuildTransaction, false);
   assert.equal(result.canSignTransaction, false);
