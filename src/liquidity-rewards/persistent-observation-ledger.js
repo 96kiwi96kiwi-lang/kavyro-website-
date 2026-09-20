@@ -10,7 +10,7 @@ function text(value) {
 function normalizeEntry(entry) {
   if (!entry || typeof entry !== 'object') throw new Error('INVALID_LEDGER_ENTRY');
   /** @type {Record<string, unknown>} */
-  const record = entry;
+  const record = /** @type {Record<string, unknown>} */ (entry);
   const wallet = text(record.wallet);
   const positionId = text(record.positionId);
   const poolId = text(record.poolId);
@@ -32,8 +32,9 @@ export function createPersistentObservationLedger(storage) {
   if (!storage || typeof storage !== 'object' || !('load' in storage) || !('save' in storage) || typeof storage.load !== 'function' || typeof storage.save !== 'function') {
     throw new Error('INVALID_LEDGER_STORAGE');
   }
+  const adapter = /** @type {{ load: () => unknown, save: (entries: readonly unknown[]) => void }} */ (storage);
 
-  const loaded = storage.load();
+  const loaded = adapter.load();
   if (!Array.isArray(loaded)) throw new Error('INVALID_PERSISTED_LEDGER');
   const entries = loaded.map(normalizeEntry);
   const keys = new Set();
@@ -54,7 +55,7 @@ export function createPersistentObservationLedger(storage) {
         return Object.freeze({ recorded: false, reason: 'DUPLICATE_LEDGER_KEY', key: entry.key, payoutAuthorized: false });
       }
       const next = Object.freeze([...entries, entry]);
-      storage.save(next);
+      adapter.save(next);
       entries.push(entry);
       keys.add(entry.key);
       return Object.freeze({ recorded: true, reason: 'RECORDED', key: entry.key, payoutAuthorized: false });
