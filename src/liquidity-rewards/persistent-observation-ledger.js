@@ -9,16 +9,18 @@ function text(value) {
 /** @param {unknown} entry */
 function normalizeEntry(entry) {
   if (!entry || typeof entry !== 'object') throw new Error('INVALID_LEDGER_ENTRY');
-  const wallet = text(entry.wallet);
-  const positionId = text(entry.positionId);
-  const poolId = text(entry.poolId);
-  const observationPeriod = entry.observationPeriod;
+  /** @type {Record<string, unknown>} */
+  const record = entry;
+  const wallet = text(record.wallet);
+  const positionId = text(record.positionId);
+  const poolId = text(record.poolId);
+  const observationPeriod = record.observationPeriod;
   if (!wallet || !positionId || !poolId || typeof observationPeriod !== 'number' || !Number.isInteger(observationPeriod) || observationPeriod < 0) {
     throw new Error('INVALID_LEDGER_ENTRY');
   }
   const key = `${wallet}:${positionId}:${observationPeriod}`;
-  if ('key' in entry && entry.key !== key) throw new Error('LEDGER_KEY_MISMATCH');
-  if ('status' in entry && entry.status !== 'RECORDED') throw new Error('INVALID_LEDGER_STATUS');
+  if ('key' in record && record.key !== key) throw new Error('LEDGER_KEY_MISMATCH');
+  if ('status' in record && record.status !== 'RECORDED') throw new Error('INVALID_LEDGER_STATUS');
   return Object.freeze({ key, wallet, positionId, poolId, observationPeriod, status: 'RECORDED' });
 }
 
