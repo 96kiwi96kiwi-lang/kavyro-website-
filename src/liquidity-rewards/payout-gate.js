@@ -1,60 +1,19 @@
-/**
- * @typedef {object} PayoutGateConfig
- * @property {boolean} [enabled]
- * @property {string | null} [poolId]
- * @property {string} [poolStatus]
- *
- * @typedef {object} PayoutGateEntitlement
- * @property {unknown} [payoutAuthorized]
- * @property {unknown} [rewardBaseUnits]
- *
- * @typedef {object} PayoutGateInput
- * @property {PayoutGateConfig} [config]
- * @property {PayoutGateEntitlement} [entitlement]
- */
-
-import { POOL_STATUS } from './config.js';
+// KAVYRO Liquidity Rewards — terminal read-only payout gate.
+// This boundary never builds, signs, sends, or authorizes a transaction.
 
 /**
- * Fail-closed boundary between calculated reward entitlements and any future
- * payout implementation. This module intentionally cannot build, sign or send
- * a Solana transaction. Even a fully valid input can never authorize payout.
- *
- * @param {PayoutGateInput} [input]
- * @returns {Readonly<{
- *   authorized: false,
- *   canBuildTransaction: false,
- *   canSignTransaction: false,
- *   canSendTransaction: false,
- *   reasons: readonly string[]
- * }>}
+ * @param {unknown} value
+ * @returns {Readonly<{ gateOpen: false, manualReviewEligible: boolean, rewardsEnabled: false, payoutAuthorized: false, reason: string, entitlementKey: string | null }>}
  */
-export function evaluatePayoutGate({ config, entitlement } = {}) {
-  /** @type {string[]} */
-  const reasons = [];
-
-  if (!config || config.enabled !== true) reasons.push('REWARDS_DISABLED');
-  if (!config || config.poolStatus !== POOL_STATUS.VERIFIED) reasons.push('POOL_UNVERIFIED');
-  if (!config || typeof config.poolId !== 'string' || config.poolId.trim() === '') {
-    reasons.push('POOL_ID_MISSING');
+export function evaluatePayoutGate(value) {
+  const deny = (reason) => Object.freeze({ gateOpen: false, manualReviewEligible: false, rewardsEnabled: false, payoutAuthorized: false, reason, entitlementKey: null });
+  if (!value || typeof value !== 'object') return deny('REPLAY_RECORD_REQUIRED');
+  const record = /** @type {Record<string, unknown>} */ (value);
+  if (record.payoutAuthorized !== false) return deny('PAYOUT_MUST_BE_UNAUTHORIZED');
+  if (typeof record.entitlementKey !== 'string' || record.entitlementKey.length === 0) return deny('ENTITLEMENT_KEY_REQUIRED');
+  if (typeof record.evidenceKey !== 'string' || record.evidenceKey.length === 0) return deny('EVIDENCE_KEY_REQUIRED');
+  for (const field of ['wallet', 'positionId', 'poolId']) {
+    if (typeof record[field] !== 'string' || record[field].length === 0) return deny('IDENTITY_REQUIRED');
   }
-
-  if (!entitlement || entitlement.payoutAuthorized !== false) {
-    reasons.push('INVALID_ENTITLEMENT_STATE');
-  }
-  if (!entitlement || typeof entitlement.rewardBaseUnits !== 'bigint' || entitlement.rewardBaseUnits <= 0n) {
-    reasons.push('INVALID_REWARD_AMOUNT');
-  }
-
-  // Deliberately unconditional. Configuration or a calculated entitlement can
-  // never enable a transfer without a separately reviewed future implementation.
-  reasons.push('PAYOUT_IMPLEMENTATION_NOT_AVAILABLE');
-
-  return Object.freeze({
-    authorized: false,
-    canBuildTransaction: false,
-    canSignTransaction: false,
-    canSendTransaction: false,
-    reasons: Object.freeze(reasons),
-  });
+  return Object.freeze({ gateOpen: false, manualReviewEligible: true, rewardsEnabled: false, payoutAuthorized: false, reason: 'MANUAL_REVIEW_ONLY', entitlementKey: /** @type {string} */ (record.entitlementKey) });
 }
