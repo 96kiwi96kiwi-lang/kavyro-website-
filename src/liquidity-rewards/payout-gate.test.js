@@ -2,69 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluatePayoutGate } from './payout-gate.js';
 
-const verifiedConfig = Object.freeze({
-  enabled: true,
-  poolStatus: 'POOL_VERIFIED',
+const replayRecord = Object.freeze({
+  entitlementKey: 'TEST_ENTITLEMENT',
+  evidenceKey: 'TEST_EVIDENCE',
+  wallet: 'TEST_WALLET',
+  positionId: 'TEST_POSITION',
   poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
-});
-
-const validEntitlement = Object.freeze({
   payoutAuthorized: false,
-  rewardBaseUnits: 1n,
 });
 
-test('remains fail-closed even when all prerequisites are satisfied', () => {
-  const result = evaluatePayoutGate({ config: verifiedConfig, entitlement: validEntitlement });
-  assert.equal(result.authorized, false);
-  assert.equal(result.canBuildTransaction, false);
-  assert.equal(result.canSignTransaction, false);
-  assert.equal(result.canSendTransaction, false);
-  assert.deepEqual(result.reasons, ['PAYOUT_IMPLEMENTATION_NOT_AVAILABLE']);
+test('valid replay record is manual-review-only and never opens payout gate', () => {
+  const result = evaluatePayoutGate(replayRecord);
+  assert.equal(result.manualReviewEligible, true);
+  assert.equal(result.gateOpen, false);
+  assert.equal(result.rewardsEnabled, false);
+  assert.equal(result.payoutAuthorized, false);
+  assert.equal(result.reason, 'MANUAL_REVIEW_ONLY');
+  assert.equal('sign' in result, false);
+  assert.equal('send' in result, false);
+  assert.equal('buildTransaction' in result, false);
 });
 
-test('rejects disabled rewards', () => {
-  const result = evaluatePayoutGate({ config: { ...verifiedConfig, enabled: false }, entitlement: validEntitlement });
-  assert.ok(result.reasons.includes('REWARDS_DISABLED'));
-  assert.equal(result.authorized, false);
-});
-
-test('rejects unverified pool and missing pool id', () => {
-  const result = evaluatePayoutGate({ config: { enabled: true, poolStatus: 'POOL_UNVERIFIED', poolId: null }, entitlement: validEntitlement });
-  assert.ok(result.reasons.includes('POOL_UNVERIFIED'));
-  assert.ok(result.reasons.includes('POOL_ID_MISSING'));
-  assert.equal(result.authorized, false);
-});
-
-test('rejects entitlement that attempts to pre-authorize payout', () => {
-  const result = evaluatePayoutGate({ config: verifiedConfig, entitlement: { payoutAuthorized: true, rewardBaseUnits: 1n } });
-  assert.ok(result.reasons.includes('INVALID_ENTITLEMENT_STATE'));
-  assert.equal(result.authorized, false);
-});
-
-test('rejects zero, negative and non-bigint reward amounts', () => {
-  for (const rewardBaseUnits of [0n, -1n, 1, '1', null]) {
-    const result = evaluatePayoutGate({ config: verifiedConfig, entitlement: { payoutAuthorized: false, rewardBaseUnits } });
-    assert.ok(result.reasons.includes('INVALID_REWARD_AMOUNT'));
-    assert.equal(result.authorized, false);
-  }
-});
-
-test('fails closed when inputs are absent', () => {
-  const result = evaluatePayoutGate();
-  assert.equal(result.authorized, false);
-  assert.equal(result.canBuildTransaction, false);
-  assert.equal(result.canSignTransaction, false);
-  assert.equal(result.canSendTransaction, false);
-  assert.ok(result.reasons.includes('REWARDS_DISABLED'));
-  assert.ok(result.reasons.includes('POOL_UNVERIFIED'));
-  assert.ok(result.reasons.includes('POOL_ID_MISSING'));
-  assert.ok(result.reasons.includes('INVALID_ENTITLEMENT_STATE'));
-  assert.ok(result.reasons.includes('INVALID_REWARD_AMOUNT'));
-  assert.ok(result.reasons.includes('PAYOUT_IMPLEMENTATION_NOT_AVAILABLE'));
-});
-
-test('returns immutable result and reasons', () => {
-  const result = evaluatePayoutGate({ config: verifiedConfig, entitlement: validEntitlement });
-  assert.equal(Object.isFrozen(result), true);
-  assert.equal(Object.isFrozen(result.reasons), true);
+test('fails closed when payout is pre-authorized or identity is incomplete', () => {
+  assert.equal(evaluatePayoutGate({ ...replayRecord, payoutAuthorized: true }).manualReviewEligible, false);
+  assert.equal(evaluatePayoutGate({ ...replayRecord, evidenceKey: '' }).manualReviewEligible, false);
+  assert.equal(evaluatePayoutGate({ ...replayRecord, poolId: '' }).manualReviewEligible, false);
+  assert.equal(evaluatePayoutGate(null).manualReviewEligible, false);
 });
