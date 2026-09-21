@@ -14,6 +14,7 @@ const TEST_POOL = 'TEST_ONLY_POOL_ID_NOT_PRODUCTION';
 const TEST_WALLET = 'TEST_WALLET_NOT_PRODUCTION';
 const TEST_POSITION = 'TEST_POSITION_NOT_PRODUCTION';
 
+/** @param {Readonly<{ poolId: string }>} candidate */
 function providerFor(candidate) {
   return createReadOnlyPoolProvider({
     source: 'TEST_FIXTURE_NOT_PRODUCTION',
