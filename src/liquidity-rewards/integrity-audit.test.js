@@ -13,6 +13,8 @@ test('creates deterministic audit evidence without authorizing rewards', () => {
   const first = createObservationAuditEvidence(evidence);
   const second = createObservationAuditEvidence({ ...evidence });
   assert.equal(first.valid, true);
+  assert.equal(second.valid, true);
+  if (!first.valid || !second.valid) assert.fail('expected valid audit evidence');
   assert.equal(first.digest, second.digest);
   assert.equal(first.digest.length, 64);
   assert.equal(first.ownershipProven, false);
@@ -24,9 +26,10 @@ test('creates deterministic audit evidence without authorizing rewards', () => {
 test('verifies intact audit evidence without elevating authority', () => {
   const created = createObservationAuditEvidence(evidence);
   assert.equal(created.valid, true);
-  if (!created.valid) return;
+  if (!created.valid) assert.fail('expected valid audit evidence');
   const result = verifyObservationAuditEvidence(evidence, created.digest);
   assert.equal(result.valid, true);
+  if (!result.valid) assert.fail('expected intact audit evidence');
   assert.equal(result.ownershipProven, false);
   assert.equal(result.contributionProven, false);
   assert.equal(result.entitlementAuthorized, false);
@@ -36,7 +39,7 @@ test('verifies intact audit evidence without elevating authority', () => {
 test('fails closed when audit evidence is tampered', () => {
   const created = createObservationAuditEvidence(evidence);
   assert.equal(created.valid, true);
-  if (!created.valid) return;
+  if (!created.valid) assert.fail('expected valid audit evidence');
   assert.deepEqual(verifyObservationAuditEvidence({ ...evidence, poolId: 'OTHER_TEST_POOL' }, created.digest), {
     valid: false,
     reason: 'AUDIT_EVIDENCE_TAMPERED',
