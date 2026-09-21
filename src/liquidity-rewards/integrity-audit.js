@@ -4,12 +4,17 @@
 
 import { createHash } from 'node:crypto';
 
+/** @typedef {{wallet:string,positionId:string,poolId:string,observationPeriod:number}} AuditEvidence */
+/** @typedef {{valid:true,reason:string,evidence:Readonly<AuditEvidence>,digest:string,ownershipProven:false,contributionProven:false,entitlementAuthorized:false,payoutAuthorized:false}} CreatedAuditEvidence */
+/** @typedef {{valid:false,reason:string,payoutAuthorized:false}} InvalidAuditEvidence */
+/** @typedef {{valid:true,reason:string,ownershipProven:false,contributionProven:false,entitlementAuthorized:false,payoutAuthorized:false}} VerifiedAuditEvidence */
+
 /** @param {unknown} value @returns {string} */
 function text(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** @param {unknown} value */
+/** @param {unknown} value @returns {Readonly<AuditEvidence>} */
 function normalize(value) {
   if (!value || typeof value !== 'object') throw new Error('INVALID_AUDIT_EVIDENCE');
   const record = /** @type {Record<string, unknown>} */ (value);
@@ -23,7 +28,7 @@ function normalize(value) {
   return Object.freeze({ wallet, positionId, poolId, observationPeriod });
 }
 
-/** @param {{wallet:string,positionId:string,poolId:string,observationPeriod:number}} evidence */
+/** @param {AuditEvidence} evidence */
 function digest(evidence) {
   const canonical = JSON.stringify([
     evidence.wallet,
@@ -37,6 +42,7 @@ function digest(evidence) {
 /**
  * Produce deterministic, tamper-evident audit evidence from a reconciled observation.
  * @param {unknown} value
+ * @returns {CreatedAuditEvidence | InvalidAuditEvidence}
  */
 export function createObservationAuditEvidence(value) {
   try {
@@ -60,6 +66,7 @@ export function createObservationAuditEvidence(value) {
  * Verify that persisted audit evidence has not changed since its digest was created.
  * @param {unknown} value
  * @param {unknown} expectedDigest
+ * @returns {VerifiedAuditEvidence | InvalidAuditEvidence}
  */
 export function verifyObservationAuditEvidence(value, expectedDigest) {
   if (typeof expectedDigest !== 'string' || !/^[a-f0-9]{64}$/.test(expectedDigest)) {
