@@ -42,12 +42,18 @@ export function createSolanaRpcPoolVerifier({
 
   const trustedTimeEnabled = readBlockTime !== undefined || nowSeconds !== undefined || maxObservationAgeSeconds !== null;
   const maxAgeSeconds = safeTimestamp(maxObservationAgeSeconds);
+  /** @type {((slot: number) => Promise<unknown>) | null} */
+  let trustedReadBlockTime = null;
+  /** @type {(() => number) | null} */
+  let trustedNowSeconds = null;
   if (trustedTimeEnabled) {
     if (typeof readBlockTime !== 'function') throw new TypeError('readBlockTime must be a function when trusted observation time is enabled');
     if (typeof nowSeconds !== 'function') throw new TypeError('nowSeconds must be a function when trusted observation time is enabled');
     if (maxAgeSeconds === null) {
       throw new TypeError('maxObservationAgeSeconds must be a safe non-negative integer when trusted observation time is enabled');
     }
+    trustedReadBlockTime = readBlockTime;
+    trustedNowSeconds = nowSeconds;
   }
 
   /** @param {unknown} input */
@@ -83,19 +89,22 @@ export function createSolanaRpcPoolVerifier({
     let observedAtSeconds = null;
     if (trustedTimeEnabled) {
       if (contextSlot === null) return Object.freeze({ verified: false, reason: 'RPC_CONTEXT_SLOT_REQUIRED_FOR_TIME' });
+      if (trustedReadBlockTime === null || trustedNowSeconds === null || maxAgeSeconds === null) {
+        return Object.freeze({ verified: false, reason: 'TRUSTED_TIME_CONFIGURATION_INVALID' });
+      }
       let rawBlockTime;
       try {
-        rawBlockTime = await readBlockTime(contextSlot);
+        rawBlockTime = await trustedReadBlockTime(contextSlot);
       } catch {
         return Object.freeze({ verified: false, reason: 'RPC_BLOCK_TIME_READ_FAILED' });
       }
       observedAtSeconds = safeTimestamp(rawBlockTime);
       if (observedAtSeconds === null) return Object.freeze({ verified: false, reason: 'RPC_BLOCK_TIME_INVALID' });
 
-      const now = safeTimestamp(nowSeconds());
+      const now = safeTimestamp(trustedNowSeconds());
       if (now === null) return Object.freeze({ verified: false, reason: 'LOCAL_TIME_INVALID' });
       if (observedAtSeconds > now) return Object.freeze({ verified: false, reason: 'FUTURE_RPC_EVIDENCE' });
-      if (maxAgeSeconds === null || now - observedAtSeconds > maxAgeSeconds) {
+      if (now - observedAtSeconds > maxAgeSeconds) {
         return Object.freeze({ verified: false, reason: 'STALE_RPC_TIME_EVIDENCE' });
       }
     }
