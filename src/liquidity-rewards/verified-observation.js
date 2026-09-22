@@ -1,23 +1,29 @@
 import { validateRaydiumPool } from './pool-validator.js';
+import { observationPeriodForTimestamp } from './observation-period.js';
 
 /**
  * @typedef {object} PositionObservation
  * @property {unknown} [wallet]
  * @property {unknown} [positionId]
  * @property {unknown} [observationPeriod]
+ * @property {unknown} [observedAtSeconds]
  * @property {unknown} [eligible]
  */
 
 /**
  * Bridges independent pool validation to the reward ledger without trusting a
- * caller-supplied poolVerified boolean or Pool ID. This boundary does not prove
- * LP ownership or contribution amount and cannot authorize payout.
+ * caller-supplied poolVerified boolean or Pool ID. The supplied observation
+ * period must also agree with its timestamp-derived period so callers cannot
+ * accelerate sustained-holding evidence by forging period indexes. This
+ * boundary does not prove LP ownership or contribution amount and cannot
+ * authorize payout.
  *
  * @param {unknown} input
  * @returns {Readonly<{
  *   wallet: string,
  *   positionId: string,
  *   observationPeriod: number,
+ *   observedAtSeconds: number,
  *   eligible: true,
  *   poolVerified: true,
  *   poolId: string,
@@ -46,16 +52,24 @@ export function buildVerifiedObservation(input) {
   const wallet = typeof position.wallet === 'string' ? position.wallet.trim() : '';
   const positionId = typeof position.positionId === 'string' ? position.positionId.trim() : '';
   const observationPeriod = position.observationPeriod;
+  const observedAtSeconds = position.observedAtSeconds;
 
   if (!wallet || !positionId) throw new Error('POSITION_IDENTITY_INVALID');
   if (typeof observationPeriod !== 'number' || !Number.isSafeInteger(observationPeriod) || observationPeriod < 0) {
     throw new Error('OBSERVATION_PERIOD_INVALID');
+  }
+  if (typeof observedAtSeconds !== 'number' || !Number.isSafeInteger(observedAtSeconds) || observedAtSeconds < 0) {
+    throw new Error('OBSERVATION_TIMESTAMP_INVALID');
+  }
+  if (observationPeriodForTimestamp(observedAtSeconds) !== observationPeriod) {
+    throw new Error('OBSERVATION_PERIOD_MISMATCH');
   }
 
   return Object.freeze({
     wallet,
     positionId,
     observationPeriod,
+    observedAtSeconds,
     eligible: true,
     poolVerified: true,
     poolId: validation.poolId,
