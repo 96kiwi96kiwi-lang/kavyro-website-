@@ -59,6 +59,21 @@ test('fails closed on identity or contribution mismatch', () => {
   );
 });
 
+test('fails closed on forged or inconsistent holding ranges', () => {
+  assert.throws(
+    () => requireVerifiedEntitlement(contribution, { ...eligibility, firstObservationPeriod: -1 }),
+    /INVALID_HOLDING_EVIDENCE/,
+  );
+  assert.throws(
+    () => requireVerifiedEntitlement(contribution, { ...eligibility, firstObservationPeriod: 13, lastObservationPeriod: 12 }),
+    /INVALID_HOLDING_EVIDENCE/,
+  );
+  assert.throws(
+    () => requireVerifiedEntitlement(contribution, { ...eligibility, firstObservationPeriod: 10, lastObservationPeriod: 20, consecutivePeriods: 3 }),
+    /INVALID_HOLDING_EVIDENCE/,
+  );
+});
+
 test('exposes no transaction or payout execution capability', () => {
   const result = requireVerifiedEntitlement(contribution, eligibility);
   assert.equal('sign' in result, false);
