@@ -61,6 +61,13 @@ export function requireVerifiedEntitlement(contributionValue, eligibilityValue) 
       !Number.isSafeInteger(eligibility.consecutivePeriods) || /** @type {number} */ (eligibility.consecutivePeriods) < 2) {
     throw new Error('INVALID_HOLDING_EVIDENCE');
   }
+  const firstObservationPeriod = /** @type {number} */ (eligibility.firstObservationPeriod);
+  const lastObservationPeriod = /** @type {number} */ (eligibility.lastObservationPeriod);
+  const consecutivePeriods = /** @type {number} */ (eligibility.consecutivePeriods);
+  if (firstObservationPeriod < 0 || lastObservationPeriod < firstObservationPeriod ||
+      consecutivePeriods !== lastObservationPeriod - firstObservationPeriod + 1) {
+    throw new Error('INVALID_HOLDING_EVIDENCE');
+  }
 
   return Object.freeze({
     entitlementEligible: true,
@@ -70,9 +77,9 @@ export function requireVerifiedEntitlement(contributionValue, eligibilityValue) 
     entitledKvroBaseUnits: /** @type {bigint} */ (eligibility.minimumContributionKvroBaseUnits),
     ownershipEvidenceId: contribution.ownershipEvidenceId,
     contributionEvidenceId: contribution.contributionEvidenceId,
-    firstObservationPeriod: /** @type {number} */ (eligibility.firstObservationPeriod),
-    lastObservationPeriod: /** @type {number} */ (eligibility.lastObservationPeriod),
-    consecutivePeriods: /** @type {number} */ (eligibility.consecutivePeriods),
+    firstObservationPeriod,
+    lastObservationPeriod,
+    consecutivePeriods,
     entitlementAuthorized: false,
     payoutAuthorized: false,
   });
