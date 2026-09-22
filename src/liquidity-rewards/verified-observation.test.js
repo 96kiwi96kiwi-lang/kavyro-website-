@@ -5,11 +5,13 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 
 const KVRO = KAVYRO_MINT;
 const WSOL = WRAPPED_SOL_MINT;
+const OBSERVED_AT_SECONDS = 3600;
 
 const position = Object.freeze({
   wallet: 'wallet-test-1',
   positionId: 'lp-position-test-1',
   observationPeriod: 1,
+  observedAtSeconds: OBSERVED_AT_SECONDS,
   eligible: true,
 });
 
@@ -58,4 +60,19 @@ test('rejects missing position data', () => {
     candidatePool: verifiedCandidate(),
     position: null,
   }), /POSITION_DATA_MISSING/);
+});
+
+test('rejects a caller-forged observation period that disagrees with observed time', () => {
+  assert.throws(() => buildVerifiedObservation({
+    candidatePool: verifiedCandidate(),
+    position: { ...position, observationPeriod: 999 },
+  }), /OBSERVATION_PERIOD_MISMATCH/);
+});
+
+test('rejects observations without a timestamp binding the period to time', () => {
+  const { observedAtSeconds: _ignored, ...withoutTimestamp } = position;
+  assert.throws(() => buildVerifiedObservation({
+    candidatePool: verifiedCandidate(),
+    position: withoutTimestamp,
+  }), /OBSERVATION_TIMESTAMP_INVALID/);
 });
