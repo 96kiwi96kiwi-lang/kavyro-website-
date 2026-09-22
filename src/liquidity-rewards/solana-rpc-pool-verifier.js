@@ -41,10 +41,11 @@ export function createSolanaRpcPoolVerifier({
   }
 
   const trustedTimeEnabled = readBlockTime !== undefined || nowSeconds !== undefined || maxObservationAgeSeconds !== null;
+  const maxAgeSeconds = safeTimestamp(maxObservationAgeSeconds);
   if (trustedTimeEnabled) {
     if (typeof readBlockTime !== 'function') throw new TypeError('readBlockTime must be a function when trusted observation time is enabled');
     if (typeof nowSeconds !== 'function') throw new TypeError('nowSeconds must be a function when trusted observation time is enabled');
-    if (safeTimestamp(maxObservationAgeSeconds) === null) {
+    if (maxAgeSeconds === null) {
       throw new TypeError('maxObservationAgeSeconds must be a safe non-negative integer when trusted observation time is enabled');
     }
   }
@@ -94,7 +95,7 @@ export function createSolanaRpcPoolVerifier({
       const now = safeTimestamp(nowSeconds());
       if (now === null) return Object.freeze({ verified: false, reason: 'LOCAL_TIME_INVALID' });
       if (observedAtSeconds > now) return Object.freeze({ verified: false, reason: 'FUTURE_RPC_EVIDENCE' });
-      if (now - observedAtSeconds > maxObservationAgeSeconds) {
+      if (maxAgeSeconds === null || now - observedAtSeconds > maxAgeSeconds) {
         return Object.freeze({ verified: false, reason: 'STALE_RPC_TIME_EVIDENCE' });
       }
     }
