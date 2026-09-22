@@ -12,14 +12,41 @@ const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
 /** @param {unknown} value */
 const safeSlot = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+/** @param {unknown} value */
+const safeTimestamp = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 
-/** @param {{readPoolAccount?: (poolId: string) => Promise<unknown>, allowedProgramOwners?: readonly string[], minimumContextSlot?: number | null}} [options] */
-export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwners = [], minimumContextSlot = null } = {}) {
+/**
+ * @param {{
+ *   readPoolAccount?: (poolId: string) => Promise<unknown>,
+ *   allowedProgramOwners?: readonly string[],
+ *   minimumContextSlot?: number | null,
+ *   readBlockTime?: (slot: number) => Promise<unknown>,
+ *   nowSeconds?: () => number,
+ *   maxObservationAgeSeconds?: number | null
+ * }} [options]
+ */
+export function createSolanaRpcPoolVerifier({
+  readPoolAccount,
+  allowedProgramOwners = [],
+  minimumContextSlot = null,
+  readBlockTime,
+  nowSeconds,
+  maxObservationAgeSeconds = null,
+} = {}) {
   if (typeof readPoolAccount !== 'function') throw new TypeError('readPoolAccount must be a function');
   const owners = new Set(allowedProgramOwners.map(clean).filter(Boolean));
   if (owners.size === 0) throw new TypeError('allowedProgramOwners must contain independently verified Raydium program owner(s)');
   if (minimumContextSlot !== null && safeSlot(minimumContextSlot) === null) {
     throw new TypeError('minimumContextSlot must be a safe non-negative integer or null');
+  }
+
+  const trustedTimeEnabled = readBlockTime !== undefined || nowSeconds !== undefined || maxObservationAgeSeconds !== null;
+  if (trustedTimeEnabled) {
+    if (typeof readBlockTime !== 'function') throw new TypeError('readBlockTime must be a function when trusted observation time is enabled');
+    if (typeof nowSeconds !== 'function') throw new TypeError('nowSeconds must be a function when trusted observation time is enabled');
+    if (safeTimestamp(maxObservationAgeSeconds) === null) {
+      throw new TypeError('maxObservationAgeSeconds must be a safe non-negative integer when trusted observation time is enabled');
+    }
   }
 
   /** @param {unknown} input */
@@ -52,6 +79,26 @@ export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwn
       return Object.freeze({ verified: false, reason: 'CANONICAL_MINT_PAIR_MISMATCH' });
     }
 
+    let observedAtSeconds = null;
+    if (trustedTimeEnabled) {
+      if (contextSlot === null) return Object.freeze({ verified: false, reason: 'RPC_CONTEXT_SLOT_REQUIRED_FOR_TIME' });
+      let rawBlockTime;
+      try {
+        rawBlockTime = await readBlockTime(contextSlot);
+      } catch {
+        return Object.freeze({ verified: false, reason: 'RPC_BLOCK_TIME_READ_FAILED' });
+      }
+      observedAtSeconds = safeTimestamp(rawBlockTime);
+      if (observedAtSeconds === null) return Object.freeze({ verified: false, reason: 'RPC_BLOCK_TIME_INVALID' });
+
+      const now = safeTimestamp(nowSeconds());
+      if (now === null) return Object.freeze({ verified: false, reason: 'LOCAL_TIME_INVALID' });
+      if (observedAtSeconds > now) return Object.freeze({ verified: false, reason: 'FUTURE_RPC_EVIDENCE' });
+      if (now - observedAtSeconds > maxObservationAgeSeconds) {
+        return Object.freeze({ verified: false, reason: 'STALE_RPC_TIME_EVIDENCE' });
+      }
+    }
+
     return Object.freeze({
       verified: true,
       poolId,
@@ -59,6 +106,7 @@ export function createSolanaRpcPoolVerifier({ readPoolAccount, allowedProgramOwn
       mintB,
       owner,
       contextSlot,
+      ...(observedAtSeconds === null ? {} : { observedAtSeconds }),
       onChainExists: true,
       source: SOLANA_RPC_VERIFICATION_SOURCE,
       discoverySource: candidate.source,
