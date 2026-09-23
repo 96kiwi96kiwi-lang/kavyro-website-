@@ -16,11 +16,18 @@ const DENIED = Object.freeze({
  * @property {unknown} [mintA]
  * @property {unknown} [mintB]
  * @property {unknown} [onChainExists]
+ * @property {unknown} [contextSlot]
+ * @property {unknown} [observedAtSeconds]
  */
+
+/** @param {unknown} value */
+const safeNonNegativeInteger = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 
 /**
  * Fail-closed normalization boundary for an already independently verified
- * read-only observation. This function cannot authorize payouts or expose any
+ * read-only observation. Trusted observation time must remain bound to the RPC
+ * context slot; callers cannot promote untimed verification into sustained
+ * eligibility evidence. This function cannot authorize payouts or expose any
  * transaction capability.
  *
  * @param {unknown} observation
@@ -46,9 +53,15 @@ export function enforceObservationSafety(observation) {
     return { ...DENIED, reasons: ['OBSERVATION_UNEXPECTED_MINTS'] };
   }
 
+  const contextSlot = safeNonNegativeInteger(candidate.contextSlot);
+  const observedAtSeconds = safeNonNegativeInteger(candidate.observedAtSeconds);
+  if (contextSlot === null || observedAtSeconds === null) {
+    return { ...DENIED, reasons: ['OBSERVATION_TRUSTED_TIME_REQUIRED'] };
+  }
+
   return {
     ok: true,
-    observation: Object.freeze({ source, poolId, mintA, mintB, onChainExists: true }),
+    observation: Object.freeze({ source, poolId, mintA, mintB, onChainExists: true, contextSlot, observedAtSeconds }),
     reasons: [],
     payoutAuthorized: false,
     canBuildTransaction: false,
