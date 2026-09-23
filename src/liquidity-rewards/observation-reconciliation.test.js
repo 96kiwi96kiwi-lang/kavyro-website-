@@ -7,11 +7,15 @@ const persisted = {
   positionId: 'position-a',
   poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
   observationPeriod: 7,
+  contextSlot: 123456789,
+  observedAtSeconds: 25200,
 };
 
-test('reconciles only identical observation identifiers without authorizing rewards', () => {
+test('reconciles only identical observation identifiers and trusted time without authorizing rewards', () => {
   const result = reconcileObservationEvidence(persisted, { ...persisted });
   assert.equal(result.reconciled, true);
+  assert.equal(result.contextSlot, persisted.contextSlot);
+  assert.equal(result.observedAtSeconds, persisted.observedAtSeconds);
   assert.equal(result.ownershipProven, false);
   assert.equal(result.contributionProven, false);
   assert.equal(result.entitlementAuthorized, false);
@@ -36,13 +40,32 @@ test('fails closed when pool evidence conflicts', () => {
   });
 });
 
-test('fails closed on malformed evidence', () => {
+test('fails closed when trusted RPC time conflicts', () => {
+  assert.deepEqual(reconcileObservationEvidence(persisted, { ...persisted, contextSlot: persisted.contextSlot + 1 }), {
+    reconciled: false,
+    reason: 'TRUSTED_TIME_MISMATCH',
+    payoutAuthorized: false,
+  });
+  assert.deepEqual(reconcileObservationEvidence(persisted, { ...persisted, observedAtSeconds: persisted.observedAtSeconds + 1 }), {
+    reconciled: false,
+    reason: 'TRUSTED_TIME_MISMATCH',
+    payoutAuthorized: false,
+  });
+});
+
+test('fails closed on malformed or missing trusted-time evidence', () => {
   assert.deepEqual(reconcileObservationEvidence(null, persisted), {
     reconciled: false,
     reason: 'INVALID_RECONCILIATION_EVIDENCE',
     payoutAuthorized: false,
   });
   assert.deepEqual(reconcileObservationEvidence(persisted, { ...persisted, observationPeriod: -1 }), {
+    reconciled: false,
+    reason: 'INVALID_RECONCILIATION_EVIDENCE',
+    payoutAuthorized: false,
+  });
+  const { contextSlot: _contextSlot, ...withoutSlot } = persisted;
+  assert.deepEqual(reconcileObservationEvidence(persisted, withoutSlot), {
     reconciled: false,
     reason: 'INVALID_RECONCILIATION_EVIDENCE',
     payoutAuthorized: false,
