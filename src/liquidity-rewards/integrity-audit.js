@@ -3,8 +3,9 @@
 // and never authorizes entitlement or payout.
 
 import { createHash } from 'node:crypto';
+import { observationPeriodForTimestamp } from './observation-period.js';
 
-/** @typedef {{wallet:string,positionId:string,poolId:string,observationPeriod:number}} AuditEvidence */
+/** @typedef {{wallet:string,positionId:string,poolId:string,observationPeriod:number,contextSlot:number,observedAtSeconds:number}} AuditEvidence */
 /** @typedef {{valid:true,reason:string,evidence:Readonly<AuditEvidence>,digest:string,ownershipProven:false,contributionProven:false,entitlementAuthorized:false,payoutAuthorized:false}} CreatedAuditEvidence */
 /** @typedef {{valid:false,reason:string,payoutAuthorized:false}} InvalidAuditEvidence */
 /** @typedef {{valid:true,reason:string,ownershipProven:false,contributionProven:false,entitlementAuthorized:false,payoutAuthorized:false}} VerifiedAuditEvidence */
@@ -22,10 +23,20 @@ function normalize(value) {
   const positionId = text(record.positionId);
   const poolId = text(record.poolId);
   const observationPeriod = record.observationPeriod;
-  if (!wallet || !positionId || !poolId || typeof observationPeriod !== 'number' || !Number.isInteger(observationPeriod) || observationPeriod < 0) {
+  const contextSlot = record.contextSlot;
+  const observedAtSeconds = record.observedAtSeconds;
+  if (
+    !wallet || !positionId || !poolId ||
+    typeof observationPeriod !== 'number' || !Number.isSafeInteger(observationPeriod) || observationPeriod < 0 ||
+    typeof contextSlot !== 'number' || !Number.isSafeInteger(contextSlot) || contextSlot < 0 ||
+    typeof observedAtSeconds !== 'number' || !Number.isSafeInteger(observedAtSeconds) || observedAtSeconds < 0
+  ) {
     throw new Error('INVALID_AUDIT_EVIDENCE');
   }
-  return Object.freeze({ wallet, positionId, poolId, observationPeriod });
+  if (observationPeriodForTimestamp(observedAtSeconds) !== observationPeriod) {
+    throw new Error('INVALID_AUDIT_EVIDENCE');
+  }
+  return Object.freeze({ wallet, positionId, poolId, observationPeriod, contextSlot, observedAtSeconds });
 }
 
 /** @param {AuditEvidence} evidence */
@@ -35,6 +46,8 @@ function digest(evidence) {
     evidence.positionId,
     evidence.poolId,
     evidence.observationPeriod,
+    evidence.contextSlot,
+    evidence.observedAtSeconds,
   ]);
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
