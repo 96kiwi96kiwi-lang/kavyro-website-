@@ -34,6 +34,8 @@ function verifierFor({ verified = true, mintB = WRAPPED_SOL_MINT } = {}) {
       mintA: KAVYRO_MINT,
       mintB,
       onChainExists: true,
+      contextSlot: 123456789,
+      observedAtSeconds: 3600,
     }) : Object.freeze({ verified: false, reason: 'STALE_RPC_EVIDENCE' }),
   });
 }
