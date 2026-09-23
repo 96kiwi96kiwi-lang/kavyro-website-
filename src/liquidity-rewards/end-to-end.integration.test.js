@@ -64,6 +64,8 @@ test('composes verified read-only evidence through persistence, reconciliation, 
     wallet: TEST_WALLET,
     positionId: TEST_POSITION,
     observationPeriod,
+    contextSlot: 123456789 + observationPeriod,
+    observedAtSeconds: observationPeriod * 3600,
     contributedKvroBaseUnits: 1000n,
   }));
 
@@ -82,10 +84,12 @@ test('composes verified read-only evidence through persistence, reconciliation, 
   }
   assert.equal(ledger.snapshot().length, 24);
 
-  // Simulate process restart: the new ledger instance must restore the same records.
+  // Simulate process restart: trusted slot/time must survive unchanged.
   const restartedLedger = createPersistentObservationLedger(storage);
   assert.equal(restartedLedger.snapshot().length, 24);
   const restored = restartedLedger.snapshot()[23];
+  assert.equal(restored.contextSlot, 123456812);
+  assert.equal(restored.observedAtSeconds, 82800);
   const reconciliation = reconcileObservationEvidence(restored, observations[23]);
   assert.equal(reconciliation.reconciled, true);
   assert.equal(reconciliation.ownershipProven, false);
@@ -137,7 +141,7 @@ test('fails closed before entitlement when RPC evidence is stale or canonical mi
 test('persistence, reconciliation and audit fail closed on corruption or tampering', () => {
   assert.throws(() => createPersistentObservationLedger({ load: () => [{ wallet: TEST_WALLET, positionId: TEST_POSITION, poolId: TEST_POOL, observationPeriod: -1 }], save: () => {} }), /INVALID_LEDGER_ENTRY/);
 
-  const persisted = { wallet: TEST_WALLET, positionId: TEST_POSITION, poolId: TEST_POOL, observationPeriod: 1 };
+  const persisted = { wallet: TEST_WALLET, positionId: TEST_POSITION, poolId: TEST_POOL, observationPeriod: 1, contextSlot: 2, observedAtSeconds: 3600 };
   const mismatched = { ...persisted, poolId: 'TEST_OTHER_POOL_NOT_PRODUCTION' };
   const reconciliation = reconcileObservationEvidence(persisted, mismatched);
   assert.equal(reconciliation.reconciled, false);
