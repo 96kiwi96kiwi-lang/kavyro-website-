@@ -17,11 +17,12 @@ export function createReviewableRewardCandidate(entitlementValue, replayValue, a
   if (!entitlementValue || typeof entitlementValue !== 'object') throw new Error('ENTITLEMENT_REQUIRED');
   const entitlement = /** @type {Record<string, unknown>} */ (entitlementValue);
   const expectedReplay = createReplayRecord(entitlementValue);
+  const expectedReplayRecord = /** @type {Record<string, unknown>} */ (expectedReplay);
 
   if (!replayValue || typeof replayValue !== 'object') throw new Error('CONSUMED_REPLAY_RECORD_REQUIRED');
   const replay = /** @type {Record<string, unknown>} */ (replayValue);
   for (const key of ['entitlementKey', 'evidenceKey', 'wallet', 'positionId', 'poolId']) {
-    if (replay[key] !== expectedReplay[key]) throw new Error('REPLAY_RECORD_MISMATCH');
+    if (replay[key] !== expectedReplayRecord[key]) throw new Error('REPLAY_RECORD_MISMATCH');
   }
   if (replay.payoutAuthorized !== false) throw new Error('REPLAY_RECORD_MISMATCH');
 
