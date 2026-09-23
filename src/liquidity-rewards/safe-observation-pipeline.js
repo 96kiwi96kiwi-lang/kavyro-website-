@@ -19,7 +19,9 @@ const DENIED = Object.freeze({
  *   mintB: string,
  *   source?: string,
  *   onChainExists?: boolean,
- *   poolVerified?: boolean
+ *   poolVerified?: boolean,
+ *   contextSlot: number,
+ *   observedAtSeconds: number
  * }>} SafeObservation
  * @typedef {{ verifyCandidate: (candidate: unknown) => Promise<unknown> }} ReadOnlyPoolVerifier
  */

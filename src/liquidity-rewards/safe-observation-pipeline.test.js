@@ -95,3 +95,38 @@ test('rejects duplicate discovery-only candidates without creating observations'
   assert.equal(result.canSignTransaction, false);
   assert.equal(result.canSendTransaction, false);
 });
+
+test('preserves independently verified RPC time and slot in safe observations', async () => {
+  const verifier = Object.freeze({
+    verifyCandidate: async () => Object.freeze({
+      verified: true,
+      source: 'SOLANA_RPC_ACCOUNT_VERIFICATION',
+      poolId: TEST_POOL,
+      mintA: KAVYRO_MINT,
+      mintB: WRAPPED_SOL_MINT,
+      onChainExists: true,
+      contextSlot: 123456,
+      observedAtSeconds: 1700000000,
+      payoutAuthorized: false,
+      canBuildTransaction: false,
+      canSignTransaction: false,
+      canSendTransaction: false,
+    }),
+  });
+
+  const result = await collectSafeObservations(providerFor([{
+    poolId: TEST_POOL,
+    mintA: KAVYRO_MINT,
+    mintB: WRAPPED_SOL_MINT,
+    onChainExists: true,
+  }]), verifier);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.observations.length, 1);
+  assert.equal(result.observations[0].contextSlot, 123456);
+  assert.equal(result.observations[0].observedAtSeconds, 1700000000);
+  assert.equal(result.payoutAuthorized, false);
+  assert.equal(result.canBuildTransaction, false);
+  assert.equal(result.canSignTransaction, false);
+  assert.equal(result.canSendTransaction, false);
+});
