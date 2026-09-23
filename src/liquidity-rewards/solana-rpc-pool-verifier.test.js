@@ -33,6 +33,37 @@ test('rejects stale or missing RPC context when a freshness floor is required', 
   assert.equal(fresh.payoutAuthorized, false);
 });
 
+test('derives observation time independently from the finalized RPC context slot', async () => {
+  const result = await createSolanaRpcPoolVerifier({
+    allowedProgramOwners: [OWNER],
+    readPoolAccount: async () => ({ exists: true, owner: OWNER, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, contextSlot: 123 }),
+    readBlockTime: async (slot) => {
+      assert.equal(slot, 123);
+      return 3600;
+    },
+    nowSeconds: () => 3610,
+    maxObservationAgeSeconds: 60,
+  }).verifyCandidate(candidate);
+  assert.equal(result.verified, true);
+  assert.equal(result.observedAtSeconds, 3600);
+  assert.equal(result.contextSlot, 123);
+});
+
+test('rejects missing, future, or stale RPC-derived observation time when trusted time is required', async () => {
+  const base = {
+    allowedProgramOwners: [OWNER],
+    readPoolAccount: async () => ({ exists: true, owner: OWNER, mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT, contextSlot: 123 }),
+    nowSeconds: () => 4000,
+    maxObservationAgeSeconds: 60,
+  };
+  const missing = createSolanaRpcPoolVerifier({ ...base, readBlockTime: async () => null });
+  assert.deepEqual(await missing.verifyCandidate(candidate), { verified: false, reason: 'RPC_BLOCK_TIME_INVALID' });
+  const future = createSolanaRpcPoolVerifier({ ...base, readBlockTime: async () => 4001 });
+  assert.deepEqual(await future.verifyCandidate(candidate), { verified: false, reason: 'FUTURE_RPC_EVIDENCE' });
+  const stale = createSolanaRpcPoolVerifier({ ...base, readBlockTime: async () => 3900 });
+  assert.deepEqual(await stale.verifyCandidate(candidate), { verified: false, reason: 'STALE_RPC_TIME_EVIDENCE' });
+});
+
 test('rejects untrusted program owner', async () => {
   const result = await verifier({ exists: true, owner: 'FAKE_OWNER', mintA: KAVYRO_MINT, mintB: WRAPPED_SOL_MINT }).verifyCandidate(candidate);
   assert.deepEqual(result, { verified: false, reason: 'UNTRUSTED_PROGRAM_OWNER' });
