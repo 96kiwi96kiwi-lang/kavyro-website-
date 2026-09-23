@@ -11,7 +11,13 @@ const base = Object.freeze({
 
 /** @param {number} period */
 function observation(period, amount = 100n) {
-  return { ...base, observationPeriod: period, contributedKvroBaseUnits: amount };
+  return {
+    ...base,
+    observationPeriod: period,
+    contextSlot: 1000 + period,
+    observedAtSeconds: period * 3600 + 60,
+    contributedKvroBaseUnits: amount,
+  };
 }
 
 test('requires sustained consecutive observations and uses minimum held contribution', () => {
@@ -58,5 +64,37 @@ test('fails closed on unverified pool and invalid LP amount', () => {
   assert.throws(
     () => evaluateHoldingEligibility({ observations: [observation(1, 0n), observation(2)], minimumPeriods: 2 }),
     /INVALID_LP_AMOUNT/,
+  );
+});
+
+test('fails closed when trusted RPC time is missing or does not match its period', () => {
+  const missingTime = { ...observation(50), observedAtSeconds: /** @type {any} */ (undefined) };
+  assert.throws(
+    () => evaluateHoldingEligibility({ observations: [missingTime, observation(51)], minimumPeriods: 2 }),
+    /OBSERVATION_TRUSTED_TIME_REQUIRED/,
+  );
+  assert.throws(
+    () => evaluateHoldingEligibility({
+      observations: [{ ...observation(50), observedAtSeconds: 51 * 3600 + 60 }, observation(51)],
+      minimumPeriods: 2,
+    }),
+    /OBSERVATION_TRUSTED_TIME_PERIOD_MISMATCH/,
+  );
+});
+
+test('fails closed on replayed or non-monotonic trusted RPC slot/time', () => {
+  assert.throws(
+    () => evaluateHoldingEligibility({
+      observations: [observation(60), { ...observation(61), contextSlot: observation(60).contextSlot }],
+      minimumPeriods: 2,
+    }),
+    /OBSERVATION_REPLAY_DETECTED/,
+  );
+  assert.throws(
+    () => evaluateHoldingEligibility({
+      observations: [observation(60), { ...observation(61), observedAtSeconds: observation(60).observedAtSeconds }],
+      minimumPeriods: 2,
+    }),
+    /OBSERVATION_TRUSTED_TIME_PERIOD_MISMATCH|OBSERVATION_REPLAY_DETECTED/,
   );
 });
