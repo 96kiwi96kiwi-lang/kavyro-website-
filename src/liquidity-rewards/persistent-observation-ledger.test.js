@@ -7,6 +7,8 @@ const observation = {
   positionId: 'position-a',
   poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
   observationPeriod: 7,
+  contextSlot: 123456789,
+  observedAtSeconds: 25200,
 };
 
 /** @param {unknown[]} [initial] */
@@ -20,7 +22,7 @@ function memoryStorage(initial = []) {
   };
 }
 
-test('persists an observation and recovers it after restart', () => {
+test('persists trusted observation time and recovers it after restart', () => {
   const storage = memoryStorage();
   const first = createPersistentObservationLedger(storage);
   assert.equal(first.record(observation).recorded, true);
@@ -29,7 +31,15 @@ test('persists an observation and recovers it after restart', () => {
   const restarted = createPersistentObservationLedger(storage);
   assert.equal(restarted.snapshot().length, 1);
   assert.equal(restarted.snapshot()[0].key, 'wallet-a:position-a:7');
+  assert.equal(restarted.snapshot()[0].contextSlot, 123456789);
+  assert.equal(restarted.snapshot()[0].observedAtSeconds, 25200);
   assert.equal(restarted.payoutAuthorized, false);
+});
+
+test('rejects entries that drop or forge trusted observation time', () => {
+  assert.throws(() => createPersistentObservationLedger(memoryStorage([{ ...observation, contextSlot: undefined }])), /INVALID_LEDGER_TRUSTED_TIME/);
+  assert.throws(() => createPersistentObservationLedger(memoryStorage([{ ...observation, observedAtSeconds: undefined }])), /INVALID_LEDGER_TRUSTED_TIME/);
+  assert.throws(() => createPersistentObservationLedger(memoryStorage([{ ...observation, observedAtSeconds: 0 }])), /LEDGER_OBSERVATION_PERIOD_MISMATCH/);
 });
 
 test('rejects replay after restart without rewriting persistence', () => {
