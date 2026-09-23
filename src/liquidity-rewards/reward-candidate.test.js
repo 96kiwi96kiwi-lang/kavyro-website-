@@ -19,6 +19,7 @@ const entitlement = Object.freeze({
   payoutAuthorized: false,
 });
 
+/** @param {Record<string, unknown>} [value] */
 function auditFor(value = {}) {
   return createObservationAuditEvidence({
     wallet: entitlement.wallet,
