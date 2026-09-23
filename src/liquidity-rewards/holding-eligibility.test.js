@@ -68,8 +68,7 @@ test('fails closed on unverified pool and invalid LP amount', () => {
 });
 
 test('fails closed when trusted RPC time is missing or does not match its period', () => {
-  const missingTime = { ...observation(50) };
-  delete missingTime.observedAtSeconds;
+  const missingTime = { ...observation(50), observedAtSeconds: /** @type {any} */ (undefined) };
   assert.throws(
     () => evaluateHoldingEligibility({ observations: [missingTime, observation(51)], minimumPeriods: 2 }),
     /OBSERVATION_TRUSTED_TIME_REQUIRED/,
