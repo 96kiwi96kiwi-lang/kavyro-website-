@@ -8,6 +8,8 @@ const TOKEN_ACCOUNT_BASE_BYTES = 165;
 const MINT_OFFSET = 0;
 const OWNER_OFFSET = 32;
 const AMOUNT_OFFSET = 64;
+const STATE_OFFSET = 108;
+const INITIALIZED_STATE = 1;
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 /** @param {Uint8Array} bytes @returns {string} */
@@ -67,6 +69,13 @@ export function decodeSolanaTokenAccount(raw) {
   const data = Buffer.from(raw.dataBase64, 'base64');
   if (data.toString('base64') !== raw.dataBase64) throw new Error('Invalid token account base64');
   if (data.length < TOKEN_ACCOUNT_BASE_BYTES) throw new Error('SPL token account is too short');
+  // Longer Token/Token-2022 layouts can carry extensions (or represent another account type).
+  // Until extension TLV semantics are independently parsed, accepting them as LP ownership
+  // evidence would turn unknown account semantics into a positive claim.
+  if (data.length !== TOKEN_ACCOUNT_BASE_BYTES) throw new Error('Unsupported token account extensions or layout');
+  // SPL AccountState: 0=uninitialized, 1=initialized, 2=frozen. Only a live initialized
+  // account is usable as current ownership evidence; unknown/frozen state fails closed.
+  if (data[STATE_OFFSET] !== INITIALIZED_STATE) throw new Error('Token account is not initialized and active');
 
   return Object.freeze({
     exists: true,
