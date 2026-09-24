@@ -77,9 +77,10 @@ export function decodeSolanaTokenAccount(raw) {
   });
 }
 
-/** @param {{readRawAccount?: (address: string) => Promise<unknown>}} [options] */
-export function createSolanaTokenAccountReader({ readRawAccount } = {}) {
-  if (typeof readRawAccount !== 'function') throw new TypeError('readRawAccount must be a function');
+/** @param {{readRawAccount: (address: string) => Promise<unknown>}} options */
+export function createSolanaTokenAccountReader(options) {
+  if (!options || typeof options.readRawAccount !== 'function') throw new TypeError('readRawAccount must be a function');
+  const { readRawAccount } = options;
   return Object.freeze({
     /** @param {string} address */
     readTokenAccount: async (address) => decodeSolanaTokenAccount(await readRawAccount(address)),
