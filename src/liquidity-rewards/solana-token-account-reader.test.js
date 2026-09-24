@@ -8,6 +8,7 @@ import {
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
+/** @param {Uint8Array} bytes */
 function base58Encode(bytes) {
   const digits = [0];
   for (const byte of bytes) {
@@ -63,6 +64,7 @@ test('fails closed on executable or truncated accounts', () => {
 
 test('reader exposes read-only capabilities and delegates to finalized raw-account reader', async () => {
   const { raw } = fixture();
+  /** @type {string[]} */
   const seen = [];
   const reader = createSolanaTokenAccountReader({ readRawAccount: async (address) => { seen.push(address); return raw; } });
   const decoded = await reader.readTokenAccount('LpTokenAccount111');
