@@ -1,16 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { KAVYRO_MINT, WRAPPED_SOL_MINT, POOL_STATUS } from './config.js';
+import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 import { createReadOnlyPoolProvider } from './read-only-provider.js';
 import { collectSafeObservations } from './safe-observation-pipeline.js';
 import { requireVerifiedContributionEvidence } from './contribution-evidence.js';
-import { evaluateHoldingEligibility } from './holding-eligibility.js';
-import { requireVerifiedEntitlement } from './entitlement-boundary.js';
-import { createReplayRecord, appendReplayRecord } from './replay-ledger.js';
-import { createPersistentReplayLedger } from './persistent-replay-ledger.js';
-import { createReviewableRewardCandidate } from './reward-candidate.js';
-import { evaluatePayoutGate } from './payout-gate.js';
 import { createPersistentObservationLedger } from './persistent-observation-ledger.js';
 import { reconcileObservationEvidence } from './observation-reconciliation.js';
 import { createObservationAuditEvidence, verifyObservationAuditEvidence } from './integrity-audit.js';
@@ -42,23 +36,11 @@ function verifierFor({ verified = true, mintB = WRAPPED_SOL_MINT } = {}) {
   });
 }
 
-test('composes verified read-only evidence through persistence, reconciliation, entitlement and payout denial', async () => {
+test('composes verified read-only pool evidence through persistence and audit, then stops at untrusted LP contribution', async () => {
   const observationResult = await collectSafeObservations(providerFor({ poolId: TEST_POOL }), verifierFor());
   assert.equal(observationResult.ok, true);
   assert.equal(observationResult.observations.length, 1);
   assert.equal(observationResult.payoutAuthorized, false);
-
-  const contribution = requireVerifiedContributionEvidence({
-    poolVerified: true,
-    ownershipVerified: true,
-    contributionVerified: true,
-    poolId: TEST_POOL,
-    wallet: TEST_WALLET,
-    positionId: TEST_POSITION,
-    contributedKvroBaseUnits: 1000n,
-    ownershipEvidenceId: 'TEST_OWNERSHIP_EVIDENCE',
-    contributionEvidenceId: 'TEST_CONTRIBUTION_EVIDENCE',
-  });
 
   const observations = Array.from({ length: 24 }, (_, observationPeriod) => ({
     poolVerified: true,
@@ -86,7 +68,6 @@ test('composes verified read-only evidence through persistence, reconciliation, 
   }
   assert.equal(ledger.snapshot().length, 24);
 
-  // Simulate process restart: trusted slot/time must survive unchanged.
   const restartedLedger = createPersistentObservationLedger(storage);
   assert.equal(restartedLedger.snapshot().length, 24);
   const restored = restartedLedger.snapshot()[23];
@@ -106,30 +87,7 @@ test('composes verified read-only evidence through persistence, reconciliation, 
   assert.equal(auditVerification.valid, true);
   assert.equal(auditVerification.payoutAuthorized, false);
 
-  const eligibility = evaluateHoldingEligibility({ observations });
-  const entitlement = requireVerifiedEntitlement(contribution, eligibility);
-  const replayRecord = createReplayRecord(entitlement);
-  const replayLedger = appendReplayRecord([], replayRecord);
-
-  assert.equal(entitlement.entitlementAuthorized, false);
-  assert.equal(entitlement.payoutAuthorized, false);
-  assert.equal(replayLedger.length, 1);
-  assert.throws(() => appendReplayRecord(replayLedger, replayRecord), /ENTITLEMENT_REPLAY_DETECTED/);
-
-  const payout = evaluatePayoutGate({
-    config: { enabled: false, poolStatus: POOL_STATUS.VERIFIED, poolId: TEST_POOL },
-    entitlement: { payoutAuthorized: entitlement.payoutAuthorized, rewardBaseUnits: entitlement.entitledKvroBaseUnits },
-  });
-  assert.equal(payout.authorized, false);
-  assert.equal(payout.canBuildTransaction, false);
-  assert.equal(payout.canSignTransaction, false);
-  assert.equal(payout.canSendTransaction, false);
-  assert.ok(payout.reasons.includes('REWARDS_DISABLED'));
-  assert.ok(payout.reasons.includes('PAYOUT_IMPLEMENTATION_NOT_AVAILABLE'));
-});
-
-test('restores consumed replay evidence before creating a review-only candidate', () => {
-  const contribution = requireVerifiedContributionEvidence({
+  assert.throws(() => requireVerifiedContributionEvidence({
     poolVerified: true,
     ownershipVerified: true,
     contributionVerified: true,
@@ -139,45 +97,21 @@ test('restores consumed replay evidence before creating a review-only candidate'
     contributedKvroBaseUnits: 1000n,
     ownershipEvidenceId: 'TEST_OWNERSHIP_EVIDENCE',
     contributionEvidenceId: 'TEST_CONTRIBUTION_EVIDENCE',
-  });
-  const observations = Array.from({ length: 24 }, (_, observationPeriod) => ({
+  }), /TRUSTED_CONTRIBUTION_EVIDENCE_REQUIRED/);
+});
+
+test('caller-supplied LP proof cannot reach replay or review-candidate stages after restart', () => {
+  assert.throws(() => requireVerifiedContributionEvidence({
     poolVerified: true,
+    ownershipVerified: true,
+    contributionVerified: true,
     poolId: TEST_POOL,
     wallet: TEST_WALLET,
     positionId: TEST_POSITION,
-    observationPeriod,
-    contextSlot: 123456789 + observationPeriod,
-    observedAtSeconds: observationPeriod * 3600,
     contributedKvroBaseUnits: 1000n,
-  }));
-  const entitlement = requireVerifiedEntitlement(contribution, evaluateHoldingEligibility({ observations }));
-  const replayRecord = createReplayRecord(entitlement);
-  /** @type {unknown[]} */
-  let persistedReplay = [];
-  const replayStorage = {
-    load: () => persistedReplay,
-    /** @param {readonly unknown[]} entries */
-    save: (entries) => { persistedReplay = entries.slice(); },
-  };
-  createPersistentReplayLedger(replayStorage).record(replayRecord);
-
-  const restartedReplayLedger = createPersistentReplayLedger(replayStorage);
-  const restoredReplay = restartedReplayLedger.snapshot()[0];
-  assert.deepEqual(restoredReplay, replayRecord);
-  assert.throws(() => restartedReplayLedger.record(replayRecord), /ENTITLEMENT_REPLAY_DETECTED/);
-
-  const audit = createObservationAuditEvidence(observations[23]);
-  assert.equal(audit.valid, true);
-  if (!audit.valid) throw new Error('AUDIT_EVIDENCE_EXPECTED');
-  const candidate = createReviewableRewardCandidate(entitlement, restoredReplay, audit.evidence, audit.digest);
-  assert.equal(candidate.reviewable, true);
-  assert.equal(candidate.ownershipProvenByCandidate, false);
-  assert.equal(candidate.contributionProvenByCandidate, false);
-  assert.equal(candidate.entitlementAuthorized, false);
-  assert.equal(candidate.payoutAuthorized, false);
-  assert.equal(candidate.canBuildTransaction, false);
-  assert.equal(candidate.canSignTransaction, false);
-  assert.equal(candidate.canSendTransaction, false);
+    ownershipEvidenceId: 'TEST_OWNERSHIP_EVIDENCE',
+    contributionEvidenceId: 'TEST_CONTRIBUTION_EVIDENCE',
+  }), /TRUSTED_CONTRIBUTION_EVIDENCE_REQUIRED/);
 });
 
 test('fails closed before entitlement when RPC evidence is stale or canonical mint pair is wrong', async () => {
@@ -217,5 +151,5 @@ test('pool verification alone cannot become contribution evidence', () => {
     ownershipVerified: false,
     contributionVerified: false,
     poolId: TEST_POOL,
-  }), /LP_OWNERSHIP_NOT_PROVEN/);
+  }), /TRUSTED_CONTRIBUTION_EVIDENCE_REQUIRED/);
 });
