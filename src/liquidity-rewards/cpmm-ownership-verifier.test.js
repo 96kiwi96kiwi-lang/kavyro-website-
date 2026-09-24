@@ -54,6 +54,13 @@ test('fails closed on unsupported CLMM-shaped pool evidence', async () => {
   await assert.rejects(() => verifier(pool({ poolType: 'RAYDIUM_CLMM' })).verifyCurrentOwnership(request), /Unsupported pool type/);
 });
 
+test('fails closed on non-positive RPC provenance slots', async () => {
+  await assert.rejects(() => verifier(pool({ contextSlot: 0 })).verifyCurrentOwnership(request), /provenance slot/);
+  await assert.rejects(() => verifier(pool({ contextSlot: -1 })).verifyCurrentOwnership(request), /provenance slot/);
+  await assert.rejects(() => verifier(pool(), account({ contextSlot: 0 })).verifyCurrentOwnership(request), /provenance slot/);
+  await assert.rejects(() => verifier(pool(), account({ contextSlot: -1 })).verifyCurrentOwnership(request), /provenance slot/);
+});
+
 test('has no transaction capabilities', () => {
   assert.deepEqual(verifier().capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
 });
