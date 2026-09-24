@@ -2,7 +2,7 @@
 // Decodes finalized getAccountInfo data only; it cannot build, sign, or send transactions.
 
 export const SPL_TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-export const TOKEN_2022_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHn7o8x7J7YgD';
+export const TOKEN_2022_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
 const TOKEN_ACCOUNT_BASE_BYTES = 165;
 const MINT_OFFSET = 0;
@@ -13,6 +13,7 @@ const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvw
 /** @param {Uint8Array} bytes @returns {string} */
 function base58Encode(bytes) {
   if (!(bytes instanceof Uint8Array)) throw new TypeError('bytes must be Uint8Array');
+  if (bytes.every((byte) => byte === 0)) return '1'.repeat(bytes.length);
   const digits = [0];
   for (const byte of bytes) {
     let carry = byte;
@@ -51,7 +52,8 @@ function readU64LE(data) {
  */
 export function decodeSolanaTokenAccount(raw) {
   if (!raw || typeof raw !== 'object' || !('exists' in raw) || !('address' in raw) || !('contextSlot' in raw) ||
-      typeof raw.address !== 'string' || typeof raw.contextSlot !== 'number') {
+      typeof raw.exists !== 'boolean' || typeof raw.address !== 'string' || !raw.address.trim() ||
+      typeof raw.contextSlot !== 'number' || !Number.isSafeInteger(raw.contextSlot) || raw.contextSlot < 0) {
     throw new Error('Invalid raw token account');
   }
   if (raw.exists !== true) return Object.freeze({ exists: false, address: raw.address, contextSlot: raw.contextSlot });
@@ -59,10 +61,11 @@ export function decodeSolanaTokenAccount(raw) {
       (raw.owner !== SPL_TOKEN_PROGRAM_ID && raw.owner !== TOKEN_2022_PROGRAM_ID)) {
     throw new Error('SPL token program owner mismatch');
   }
-  if ('executable' in raw && raw.executable === true) throw new Error('Token account must not be executable');
+  if (!('executable' in raw) || raw.executable !== false) throw new Error('Token account must not be executable');
   if (!('dataBase64' in raw) || typeof raw.dataBase64 !== 'string') throw new Error('Invalid token account base64');
 
   const data = Buffer.from(raw.dataBase64, 'base64');
+  if (data.toString('base64') !== raw.dataBase64) throw new Error('Invalid token account base64');
   if (data.length < TOKEN_ACCOUNT_BASE_BYTES) throw new Error('SPL token account is too short');
 
   return Object.freeze({
@@ -83,7 +86,11 @@ export function createSolanaTokenAccountReader(options) {
   const { readRawAccount } = options;
   return Object.freeze({
     /** @param {string} address */
-    readTokenAccount: async (address) => decodeSolanaTokenAccount(await readRawAccount(address)),
+    readTokenAccount: async (address) => {
+      const decoded = decodeSolanaTokenAccount(await readRawAccount(address));
+      if (decoded.address !== address) throw new Error('Token account address mismatch');
+      return decoded;
+    },
     capabilities: Object.freeze({ read: true, buildTransaction: false, signTransaction: false, sendTransaction: false }),
   });
 }

@@ -72,3 +72,32 @@ test('reader exposes read-only capabilities and delegates to finalized raw-accou
   assert.deepEqual(seen, ['LpTokenAccount111']);
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
 });
+
+
+test('accepts the canonical Token-2022 program and rejects the prior incorrect ID', () => {
+  const { raw } = fixture();
+  assert.equal(decodeSolanaTokenAccount({ ...raw, owner: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' }).exists, true);
+  assert.throws(() => decodeSolanaTokenAccount({ ...raw, owner: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHn7o8x7J7YgD' }), /program owner mismatch/);
+});
+
+test('encodes 32 zero bytes as exactly 32 base58 leading zeroes', () => {
+  const { raw } = fixture();
+  const decoded = decodeSolanaTokenAccount({ ...raw, dataBase64: Buffer.alloc(165).toString('base64') });
+  assert.equal(decoded.exists, true);
+  if (!decoded.exists) return;
+  assert.equal(decoded.mint, '11111111111111111111111111111111');
+  assert.equal(decoded.walletOwner, '11111111111111111111111111111111');
+});
+
+test('rejects malformed metadata and noncanonical base64', () => {
+  const { raw } = fixture();
+  for (const patch of [{ exists: 'false' }, { contextSlot: NaN }, { contextSlot: -1 }, { contextSlot: 1.5 }, { contextSlot: Infinity }, { address: '' }, { executable: undefined }, { dataBase64: raw.dataBase64 + '!' }]) {
+    assert.throws(() => decodeSolanaTokenAccount({ ...raw, ...patch }));
+  }
+});
+
+test('binds the returned account to the requested address', async () => {
+  const { raw } = fixture();
+  const reader = createSolanaTokenAccountReader({ readRawAccount: async () => raw });
+  await assert.rejects(reader.readTokenAccount('AnotherAccount'), /address mismatch/);
+});
