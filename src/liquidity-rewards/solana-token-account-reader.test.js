@@ -33,13 +33,14 @@ function fixture() {
   mint.copy(data, 0);
   wallet.copy(data, 32);
   data.writeBigUInt64LE(123456789n, 64);
+  data[108] = 1;
   return {
     raw: { exists: true, address: 'LpTokenAccount111', owner: SPL_TOKEN_PROGRAM_ID, executable: false, dataBase64: data.toString('base64'), contextSlot: 987 },
     mint: base58Encode(mint), wallet: base58Encode(wallet),
   };
 }
 
-test('decodes mint, wallet owner and amount from raw on-chain token-account bytes', () => {
+test('decodes mint, wallet owner and amount from initialized raw on-chain token-account bytes', () => {
   const { raw, mint, wallet } = fixture();
   const decoded = decodeSolanaTokenAccount(raw);
   assert.equal(decoded.exists, true);
@@ -62,6 +63,21 @@ test('fails closed on executable or truncated accounts', () => {
   assert.throws(() => decodeSolanaTokenAccount({ ...raw, dataBase64: Buffer.alloc(64).toString('base64') }), /too short/);
 });
 
+test('fails closed on uninitialized, frozen and unknown token account states', () => {
+  const { raw } = fixture();
+  for (const state of [0, 2, 255]) {
+    const data = Buffer.from(raw.dataBase64, 'base64');
+    data[108] = state;
+    assert.throws(() => decodeSolanaTokenAccount({ ...raw, dataBase64: data.toString('base64') }), /not initialized and active/);
+  }
+});
+
+test('fails closed on unsupported extended or ambiguous token layouts', () => {
+  const { raw } = fixture();
+  const extended = Buffer.concat([Buffer.from(raw.dataBase64, 'base64'), Buffer.from([1, 2, 3, 4])]);
+  assert.throws(() => decodeSolanaTokenAccount({ ...raw, dataBase64: extended.toString('base64') }), /Unsupported token account extensions or layout/);
+});
+
 test('reader exposes read-only capabilities and delegates to finalized raw-account reader', async () => {
   const { raw } = fixture();
   /** @type {string[]} */
@@ -73,16 +89,17 @@ test('reader exposes read-only capabilities and delegates to finalized raw-accou
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
 });
 
-
 test('accepts the canonical Token-2022 program and rejects the prior incorrect ID', () => {
   const { raw } = fixture();
   assert.equal(decodeSolanaTokenAccount({ ...raw, owner: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' }).exists, true);
   assert.throws(() => decodeSolanaTokenAccount({ ...raw, owner: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHn7o8x7J7YgD' }), /program owner mismatch/);
 });
 
-test('encodes 32 zero bytes as exactly 32 base58 leading zeroes', () => {
+test('encodes zero mint and wallet bytes as exactly 32 base58 leading zeroes when account is initialized', () => {
   const { raw } = fixture();
-  const decoded = decodeSolanaTokenAccount({ ...raw, dataBase64: Buffer.alloc(165).toString('base64') });
+  const data = Buffer.alloc(165);
+  data[108] = 1;
+  const decoded = decodeSolanaTokenAccount({ ...raw, dataBase64: data.toString('base64') });
   assert.equal(decoded.exists, true);
   if (!decoded.exists) return;
   assert.equal(decoded.mint, '11111111111111111111111111111111');
