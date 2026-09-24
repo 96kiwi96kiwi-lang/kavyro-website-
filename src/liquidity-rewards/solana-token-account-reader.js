@@ -25,7 +25,7 @@ function base58Encode(bytes) {
       carry = Math.floor(carry / 58);
     }
     while (carry > 0) {
-      digits.push(carry % 58;
+      digits.push(carry % 58);
       carry = Math.floor(carry / 58);
     }
   }
