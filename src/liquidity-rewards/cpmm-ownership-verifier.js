@@ -42,7 +42,8 @@ export function createCpmmOwnershipVerifier(options) {
       if (typeof tokenAccount.amountBaseUnits !== 'bigint' || tokenAccount.amountBaseUnits <= 0n) {
         throw new Error('LP token balance must be positive');
       }
-      if (!Number.isSafeInteger(pool.contextSlot) || !Number.isSafeInteger(tokenAccount.contextSlot)) {
+      if (!Number.isSafeInteger(pool.contextSlot) || pool.contextSlot <= 0 ||
+          !Number.isSafeInteger(tokenAccount.contextSlot) || tokenAccount.contextSlot <= 0) {
         throw new Error('Invalid RPC provenance slot');
       }
 
