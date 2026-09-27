@@ -16,6 +16,10 @@ export function createCpmmOwnershipVerifier(options) {
     throw new TypeError('poolReader and tokenAccountReader are required');
   }
   const { poolReader, tokenAccountReader } = options;
+  const maxContextSlotSkew = options.maxContextSlotSkew ?? 32;
+  if (!Number.isSafeInteger(maxContextSlotSkew) || maxContextSlotSkew < 0) {
+    throw new TypeError('maxContextSlotSkew must be a non-negative safe integer');
+  }
 
   return Object.freeze({
     /**
@@ -45,6 +49,9 @@ export function createCpmmOwnershipVerifier(options) {
       if (!Number.isSafeInteger(pool.contextSlot) || pool.contextSlot <= 0 ||
           !Number.isSafeInteger(tokenAccount.contextSlot) || tokenAccount.contextSlot <= 0) {
         throw new Error('Invalid RPC provenance slot');
+      }
+      if (Math.abs(pool.contextSlot - tokenAccount.contextSlot) > maxContextSlotSkew) {
+        throw new Error('RPC provenance slots are not temporally consistent');
       }
 
       return Object.freeze({
