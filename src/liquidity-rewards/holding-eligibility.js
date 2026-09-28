@@ -15,6 +15,7 @@ export const MIN_CONSECUTIVE_OBSERVATION_PERIODS = 24;
  * @property {number} contextSlot
  * @property {number} observedAtSeconds
  * @property {bigint} contributedKvroBaseUnits
+ * @property {boolean} contributionProven
  */
 
 /** @typedef {object} HoldingEligibilityInput
@@ -57,6 +58,7 @@ export function evaluateHoldingEligibility({ observations, minimumPeriods = MIN_
   const normalized = observations.map((observation) => {
     if (!observation || typeof observation !== 'object') throw new Error('INVALID_OBSERVATION');
     if (observation.poolVerified !== true || !observation.poolId) throw new Error('POOL_NOT_VERIFIED');
+    if (observation.contributionProven !== true) throw new Error('TRUSTED_CONTRIBUTION_EVIDENCE_REQUIRED');
     if (!observation.wallet || !observation.positionId) throw new Error('POSITION_IDENTITY_REQUIRED');
     const observationPeriod = requirePeriod(observation.observationPeriod);
     const contextSlot = requireTrustedTimeInteger(observation.contextSlot);
