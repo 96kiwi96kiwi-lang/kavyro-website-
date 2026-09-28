@@ -7,7 +7,8 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
  *
  * @param {{
  *   poolReader: {readPoolAccount: (poolId: string) => Promise<any>},
- *   tokenAccountReader: {readTokenAccount: (address: string) => Promise<any>}
+ *   tokenAccountReader: {readTokenAccount: (address: string) => Promise<any>},
+ *   maxContextSlotSkew?: number
  * }} options
  */
 export function createCpmmOwnershipVerifier(options) {
@@ -16,6 +17,7 @@ export function createCpmmOwnershipVerifier(options) {
     throw new TypeError('poolReader and tokenAccountReader are required');
   }
   const { poolReader, tokenAccountReader } = options;
+  // Slot proximity only; this does not prove freshness or historical contribution.
   const maxContextSlotSkew = options.maxContextSlotSkew ?? 32;
   if (!Number.isSafeInteger(maxContextSlotSkew) || maxContextSlotSkew < 0) {
     throw new TypeError('maxContextSlotSkew must be a non-negative safe integer');

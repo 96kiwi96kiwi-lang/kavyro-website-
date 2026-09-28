@@ -68,7 +68,7 @@ test('fails closed when independently-read pool and LP account slots are too far
   );
 });
 
-test('accepts a configured zero slot skew only when both reads share the same finalized slot', async () => {
+test('accepts a configured zero slot skew when both reads report the same slot', async () => {
   const strict = createCpmmOwnershipVerifier({
     poolReader: { readPoolAccount: async () => pool({ contextSlot: 100 }) },
     tokenAccountReader: { readTokenAccount: async () => account({ contextSlot: 100 }) },
@@ -87,4 +87,13 @@ test('rejects invalid slot-skew configuration', () => {
 
 test('has no transaction capabilities', () => {
   assert.deepEqual(verifier().capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
+});
+
+test('enforces the inclusive default slot-skew boundary in both directions', async () => {
+  for (const contextSlot of [68, 132]) {
+    assert.equal((await verifier(pool({ contextSlot: 100 }), account({ contextSlot })).verifyCurrentOwnership(request)).verified, true);
+  }
+  for (const contextSlot of [67, 133]) {
+    await assert.rejects(() => verifier(pool({ contextSlot: 100 }), account({ contextSlot })).verifyCurrentOwnership(request), /temporally consistent/);
+  }
 });
