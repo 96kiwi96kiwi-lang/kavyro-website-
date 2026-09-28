@@ -61,6 +61,39 @@ test('fails closed on non-positive RPC provenance slots', async () => {
   await assert.rejects(() => verifier(pool(), account({ contextSlot: -1 })).verifyCurrentOwnership(request), /provenance slot/);
 });
 
+test('fails closed when independently-read pool and LP account slots are too far apart', async () => {
+  await assert.rejects(
+    () => verifier(pool({ contextSlot: 100 }), account({ contextSlot: 133 })).verifyCurrentOwnership(request),
+    /temporally consistent/,
+  );
+});
+
+test('accepts a configured zero slot skew when both reads report the same slot', async () => {
+  const strict = createCpmmOwnershipVerifier({
+    poolReader: { readPoolAccount: async () => pool({ contextSlot: 100 }) },
+    tokenAccountReader: { readTokenAccount: async () => account({ contextSlot: 100 }) },
+    maxContextSlotSkew: 0,
+  });
+  assert.equal((await strict.verifyCurrentOwnership(request)).verified, true);
+});
+
+test('rejects invalid slot-skew configuration', () => {
+  assert.throws(() => createCpmmOwnershipVerifier({
+    poolReader: { readPoolAccount: async () => pool() },
+    tokenAccountReader: { readTokenAccount: async () => account() },
+    maxContextSlotSkew: -1,
+  }), /maxContextSlotSkew/);
+});
+
 test('has no transaction capabilities', () => {
   assert.deepEqual(verifier().capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
+});
+
+test('enforces the inclusive default slot-skew boundary in both directions', async () => {
+  for (const contextSlot of [68, 132]) {
+    assert.equal((await verifier(pool({ contextSlot: 100 }), account({ contextSlot })).verifyCurrentOwnership(request)).verified, true);
+  }
+  for (const contextSlot of [67, 133]) {
+    await assert.rejects(() => verifier(pool({ contextSlot: 100 }), account({ contextSlot })).verifyCurrentOwnership(request), /temporally consistent/);
+  }
 });
