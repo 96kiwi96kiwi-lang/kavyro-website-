@@ -7,6 +7,7 @@ const base = Object.freeze({
   poolId: 'TEST_ONLY_POOL_ID_NOT_PRODUCTION',
   wallet: 'TEST_WALLET',
   positionId: 'TEST_POSITION',
+  contributionProven: true,
 });
 
 /** @param {number} period */
@@ -96,5 +97,19 @@ test('fails closed on replayed or non-monotonic trusted RPC slot/time', () => {
       minimumPeriods: 2,
     }),
     /OBSERVATION_TRUSTED_TIME_PERIOD_MISMATCH|OBSERVATION_REPLAY_DETECTED/,
+  );
+});
+
+
+test('fails closed when sustained observations contain amounts without trusted contribution proof', () => {
+  assert.throws(
+    () => evaluateHoldingEligibility({
+      observations: [
+        { ...observation(70, 100n), contributionProven: false },
+        { ...observation(71, 100n), contributionProven: false },
+      ],
+      minimumPeriods: 2,
+    }),
+    /TRUSTED_CONTRIBUTION_EVIDENCE_REQUIRED/,
   );
 });
