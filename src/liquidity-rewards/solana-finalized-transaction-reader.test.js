@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createSolanaFinalizedTransactionReader } from './solana-finalized-transaction-reader.js';
 
 test('fetches only exact finalized transaction evidence and exposes no transaction capability', async () => {
+  /** @type {Array<{ method: string, params: unknown[] }>} */
   const requests = [];
   const reader = createSolanaFinalizedTransactionReader({
     rpcUrl: 'https://rpc.invalid',
