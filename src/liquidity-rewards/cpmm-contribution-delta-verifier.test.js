@@ -3,6 +3,7 @@ import { verifyCpmmContributionDeltas } from './cpmm-contribution-delta-verifier
 import { KAVYRO_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 const wallet='W',poolId='P',lpMint='LP';
+/** @param {number} accountIndex @param {string} mint @param {string} owner @param {string|number|bigint} amount */
 const bal=(accountIndex,mint,owner,amount)=>({accountIndex,mint,owner,uiTokenAmount:{amount:String(amount),decimals:0,uiAmount:null,uiAmountString:String(amount)}});
 const tx={exists:true,finalized:true,signature:'SIG',slot:10,blockTimeSeconds:1000,transaction:{message:{accountKeys:[wallet,poolId,RAYDIUM_CPMM_PROGRAM_ID]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,wallet,1000),bal(2,lpMint,wallet,5)],postTokenBalances:[bal(1,KAVYRO_MINT,wallet,700),bal(2,lpMint,wallet,25)]}};
 test('derives KVRO debit and LP credit only from finalized RPC balance deltas',()=>{const r=verifyCpmmContributionDeltas(tx,{wallet,poolId,lpMint});assert.equal(r.kvroTransferredBaseUnits,300n);assert.equal(r.lpMintedBaseUnits,20n);assert.equal(r.payoutAuthorized,false);});
