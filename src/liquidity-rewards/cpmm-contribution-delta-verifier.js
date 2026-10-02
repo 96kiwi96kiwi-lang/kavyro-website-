@@ -4,6 +4,7 @@
 import { KAVYRO_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 
+/** @typedef {{index:unknown,mint:string,owner:string,amount:bigint|null}} NormalizedBalance */
 /** @param {unknown} v */
 const str = (v) => typeof v === 'string' ? v.trim() : '';
 
@@ -41,20 +42,22 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
 
   const pre=Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : [];
   const post=Array.isArray(meta.postTokenBalances) ? meta.postTokenBalances : [];
-  /** @param {unknown} b */
+  /** @param {unknown} b @returns {NormalizedBalance|null} */
   const norm=(b)=>{
     if(!b||typeof b!=='object') return null;
     const x=/** @type {Record<string,unknown>} */(b);
     return {index:x.accountIndex,mint:str(x.mint),owner:str(x.owner),amount:amount(x.uiTokenAmount)};
   };
-  const before=pre.map(norm).filter(Boolean), after=post.map(norm).filter(Boolean);
+  /** @param {NormalizedBalance|null} x @returns {x is NormalizedBalance} */
+  const present=(x)=>x!==null;
+  const before=pre.map(norm).filter(present), after=post.map(norm).filter(present);
   /** @param {string} mint @param {string} owner */
   const delta=(mint,owner)=>{
-    const indices=new Set([...before,...after].filter(x=>x&&x.mint===mint&&x.owner===owner).map(x=>x.index));
+    const indices=new Set([...before,...after].filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
     let d=0n;
     for(const i of indices){
-      const a=after.find(x=>x&&x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
-      const b=before.find(x=>x&&x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
+      const a=after.find(x=>x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
+      const b=before.find(x=>x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
       if(a===null||b===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
       d += a-b;
     }
