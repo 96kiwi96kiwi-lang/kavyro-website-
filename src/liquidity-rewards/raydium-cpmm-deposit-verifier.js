@@ -5,8 +5,11 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 
 export const RAYDIUM_CPMM_DEPOSIT_DISCRIMINATOR = Object.freeze([242,35,198,137,82,225,242,182]);
 const BASE58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+/** @param {unknown} v */
 const text=(v)=>typeof v==='string'?v.trim():'';
+/** @param {unknown} s @returns {Uint8Array|null} */
 function b58(s){if(typeof s!=='string'||!s)return null;let n=0n;for(const c of s){const i=BASE58.indexOf(c);if(i<0)return null;n=n*58n+BigInt(i);}const a=[];while(n){a.push(Number(n&255n));n>>=8n;}for(const c of s){if(c!=='1')break;a.push(0);}return Uint8Array.from(a.reverse());}
+/** @param {unknown} v @returns {string} */
 const key=(v)=>typeof v==='string'?v:(v&&typeof v==='object'&&'pubkey'in v?text(v.pubkey):'');
 
 /**
