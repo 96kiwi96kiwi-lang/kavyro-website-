@@ -3,6 +3,7 @@
 
 import { KAVYRO_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
+import { verifyRaydiumCpmmDepositInstruction } from './raydium-cpmm-deposit-verifier.js';
 
 /** @typedef {{index:unknown,mint:string,owner:string,amount:bigint|null}} NormalizedBalance */
 /** @param {unknown} v */
@@ -63,6 +64,8 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
     }
     return d;
   };
+  // Balance deltas are necessary but not sufficient: require the concrete Raydium CPMM deposit instruction too.
+  verifyRaydiumCpmmDepositInstruction(txEvidence,{wallet,poolId,lpMint});
   const kvroDelta=delta(KAVYRO_MINT,wallet);
   const lpDelta=delta(lpMint,wallet);
   if (kvroDelta >= 0n) throw new Error('CPMM_CONTRIBUTION_KVRO_DEBIT_REQUIRED');
