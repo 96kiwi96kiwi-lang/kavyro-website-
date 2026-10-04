@@ -57,8 +57,10 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
     const indices=new Set([...before,...after].filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
     let d=0n;
     for(const i of indices){
-      const a=after.find(x=>x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
-      const b=before.find(x=>x.index===i&&x.mint===mint&&x.owner===owner)?.amount ?? 0n;
+      const postBalance=after.find(x=>x.index===i&&x.mint===mint&&x.owner===owner);
+      const preBalance=before.find(x=>x.index===i&&x.mint===mint&&x.owner===owner);
+      const a=postBalance ? postBalance.amount : 0n;
+      const b=preBalance ? preBalance.amount : 0n;
       if(a===null||b===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
       d += a-b;
     }

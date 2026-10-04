@@ -11,5 +11,20 @@ const tx={exists:true,finalized:true,signature:'SIG',slot:10,blockTimeSeconds:10
 test('derives KVRO debit and LP credit only from finalized RPC balance deltas',()=>{const r=verifyCpmmContributionDeltas(tx,{wallet,poolId,lpMint});assert.equal(r.kvroTransferredBaseUnits,300n);assert.equal(r.lpMintedBaseUnits,20n);assert.equal(r.payoutAuthorized,false);});
 test('caller contribution flags or current LP balance cannot replace historical deltas',()=>{assert.throws(()=>verifyCpmmContributionDeltas({verified:true,contributionProven:true,lpAmountBaseUnits:20n},{wallet,poolId,lpMint}),/PROVENANCE/);});
 test('fails closed when wallet pool or CPMM program binding is absent',()=>{assert.throws(()=>verifyCpmmContributionDeltas({...tx,transaction:{message:{accountKeys:[wallet,RAYDIUM_CPMM_PROGRAM_ID]}}},{wallet,poolId,lpMint}),/BINDING/);assert.throws(()=>verifyCpmmContributionDeltas(tx,{wallet,poolId,lpMint,poolProgramId:'CLMM'}),/IDENTITY/);});
-test('fails closed on mint change, missing KVRO debit, or missing LP credit',()=>{assert.throws(()=>verifyCpmmContributionDeltas(tx,{wallet,poolId,lpMint:'OTHER'}),/LP_MINT_CREDIT/);const noDebit={...tx,meta:{...tx.meta,postTokenBalances:[bal(1,KAVYRO_MINT,wallet,1100),bal(2,lpMint,wallet,25)]}};assert.throws(()=>verifyCpmmContributionDeltas(noDebit,{wallet,poolId,lpMint}),/KVRO_DEBIT/);});
+test('fails closed on mint change, missing KVRO debit, or missing LP credit',()=>{assert.throws(()=>verifyCpmmContributionDeltas(tx,{wallet,poolId,lpMint:'OTHER'}),/ACCOUNT_BINDING_MISMATCH/);const noDebit={...tx,meta:{...tx.meta,postTokenBalances:[bal(1,KAVYRO_MINT,wallet,1100),bal(2,lpMint,wallet,25)]}};assert.throws(()=>verifyCpmmContributionDeltas(noDebit,{wallet,poolId,lpMint}),/KVRO_DEBIT/);});
 test('rejects non-finalized or malformed evidence',()=>{assert.throws(()=>verifyCpmmContributionDeltas({...tx,finalized:false},{wallet,poolId,lpMint}),/PROVENANCE/);assert.throws(()=>verifyCpmmContributionDeltas({...tx,slot:0},{wallet,poolId,lpMint}),/PROVENANCE/);});
+
+test('missing LP credit is rejected after matching deposit identity',()=>{
+ const noCredit={...tx,meta:{...tx.meta,postTokenBalances:[bal(1,KAVYRO_MINT,wallet,700),bal(2,lpMint,wallet,5)]}};
+ assert.throws(()=>verifyCpmmContributionDeltas(noCredit,{wallet,poolId,lpMint}),/LP_MINT_CREDIT/);
+});
+test('malformed existing token amounts cannot be substituted with zero',()=>{
+ for(const side of ['preTokenBalances','postTokenBalances']) {
+  for(const index of [0,1]) {
+   const bad=structuredClone(tx);
+   const balances=side==='preTokenBalances'?bad.meta.preTokenBalances:bad.meta.postTokenBalances;
+   balances[index].uiTokenAmount.amount='invalid';
+   assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/TOKEN_AMOUNT_INVALID/);
+  }
+ }
+});
