@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import { verifyRaydiumCpmmDepositInstruction } from './raydium-cpmm-deposit-verifier.js';
+import { KAVYRO_MINT } from './config.js';
+import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
+const wallet='W',pool='P',lp='LP',quote='So11111111111111111111111111111111111111112';
+const data='HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX';
+const accounts=[wallet,'AUTH',pool,'OWNERLP','U0','U1','V0','V1',KAVYRO_MINT,quote,lp];
+const tx={exists:true,finalized:true,signature:'SIG',slot:44,blockTimeSeconds:99,transaction:{message:{instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts,data}]}}};
+test('binds the published Raydium CPMM deposit discriminator and account semantics',()=>{const r=verifyRaydiumCpmmDepositInstruction(tx,{wallet,poolId:pool,lpMint:lp});assert.equal(r.semanticKind,'RAYDIUM_CPMM_DEPOSIT');assert.equal(r.kvroMint,KAVYRO_MINT);assert.equal(r.slot,44);assert.equal(r.payoutAuthorized,false);});
+test('mere co-occurrence of accounts is not a deposit proof',()=>{assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts,data:'11111111'}]}}},{wallet,poolId:pool,lpMint:lp}),/INSTRUCTION_REQUIRED/);});
+test('fails closed on wallet pool LP or canonical mint position mismatch',()=>{for(const [i,v] of [[0,'OTHER'],[2,'OTHER'],[10,'OTHER']]){const a=[...accounts];a[/** @type {number} */(i)]=/** @type {string} */(v);assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:a,data}]}}},{wallet,poolId:pool,lpMint:lp}),/BINDING/);}const a=[...accounts];a[8]='OTHER';assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:a,data}]}}},{wallet,poolId:pool,lpMint:lp}),/KVRO_MINT/);});
+test('rejects wrong program and non-finalized provenance',()=>{assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:'OTHER',accounts,data}]}}},{wallet,poolId:pool,lpMint:lp}),/INSTRUCTION_REQUIRED/);assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,finalized:false},{wallet,poolId:pool,lpMint:lp}),/PROVENANCE/);});
