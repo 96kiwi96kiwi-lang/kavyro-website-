@@ -60,6 +60,12 @@ export function createSolanaFinalizedTransactionReader(options) {
       }
       const meta = /** @type {Record<string, unknown>} */ (r.meta);
       if (meta.err != null) throw new Error('Solana transaction failed');
+      const transaction = /** @type {Record<string, unknown>} */ (r.transaction);
+      // Solana identifies a transaction by its first signature. Never relabel a
+      // different RPC result with the requested signature (including a cosigner).
+      if (!Array.isArray(transaction.signatures) || transaction.signatures[0] !== exactSignature) {
+        throw new Error('Solana transaction signature mismatch');
+      }
       return Object.freeze({
         exists: true,
         finalized: true,
