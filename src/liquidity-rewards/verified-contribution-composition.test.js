@@ -5,6 +5,7 @@ import { createVerifiedContributionComposition } from './verified-contribution-c
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
 const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:100,tokenAccountContextSlot:101};
 
+/** @param {Record<string, unknown>} [overrides] */
 function deps(overrides={}) {
   return {
     ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
@@ -36,11 +37,13 @@ test('transaction reader failure is propagated and cannot become entitlement evi
 });
 
 test('caller cannot supply LP mint, contribution amount or proof flags through request',async()=>{
+  /** @type {{wallet:string,poolId:string,tokenAccount:string}|undefined} */
   let seen;
   const composition=createVerifiedContributionComposition(deps({
     ownershipVerifier:{verifyCurrentOwnership:async(r)=>{seen=r; throw new Error('STOP_AFTER_OWNERSHIP_REQUEST');}},
   }));
-  await assert.rejects(()=>composition.verify({...request,lpMint:'SPOOFED',contributedKvroBaseUnits:999999n,ownershipProven:true}),/STOP_AFTER_OWNERSHIP_REQUEST/);
+  const spoofedRequest=/** @type {any} */({...request,lpMint:'SPOOFED',contributedKvroBaseUnits:999999n,ownershipProven:true});
+  await assert.rejects(()=>composition.verify(spoofedRequest),/STOP_AFTER_OWNERSHIP_REQUEST/);
   assert.deepEqual(seen,{wallet:'W',poolId:'P',tokenAccount:'TA'});
 });
 
