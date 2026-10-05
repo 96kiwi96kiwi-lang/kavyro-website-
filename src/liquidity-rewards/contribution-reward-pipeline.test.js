@@ -12,6 +12,7 @@ import { KAVYRO_MINT, WRAPPED_SOL_MINT, POOL_STATUS } from './config.js';
 
 const receipt={finalized:true,signature:'SIG',wallet:'W',poolId:'P',poolType:'RAYDIUM_CPMM',lpMint:'LP',kvroMint:KAVYRO_MINT,quoteMint:WRAPPED_SOL_MINT,kvroSourceOwner:'W',kvroTransferredBaseUnits:500n,lpMintedBaseUnits:20n,slot:100,blockTimeSeconds:3600,observedAtSeconds:3610,maxAgeSeconds:60};
 const ownership={verified:true,poolVerified:true,ownershipProven:true,wallet:'W',poolId:'P',lpMint:'LP',positionId:'LP-POSITION',ownershipEvidenceId:'OWNERSHIP-EVIDENCE'};
+/** @param {number} period */
 const rawObservation=(period,amount=999999n)=>({poolVerified:true,poolId:'P',wallet:'W',positionId:'LP-POSITION',observationPeriod:period,contextSlot:1000+period,observedAtSeconds:period*3600+60,contributionProven:true,contributedKvroBaseUnits:amount});
 
 test('verified historical contribution reaches reviewable proposal but payout gate stays closed',()=>{

@@ -61,3 +61,13 @@ test('receipt and holding identities must agree', () => {
     /IDENTITY_MISMATCH/,
   );
 });
+
+test('rejects malformed observation time before binding trusted evidence', () => {
+  for (const field of ['observationPeriod', 'contextSlot', 'observedAtSeconds']) {
+    for (const value of [undefined, '200', NaN, -1, 1.5]) {
+      assert.throws(() => bindContributionEvidenceToObservation(receipt, {
+        ...observation, [field]: value,
+      }), /OBSERVATION_TRUSTED_TIME_REQUIRED/);
+    }
+  }
+});
