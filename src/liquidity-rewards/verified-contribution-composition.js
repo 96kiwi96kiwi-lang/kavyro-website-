@@ -38,11 +38,16 @@ export function createVerifiedContributionComposition(deps) {
           ownership.tokenAccount !== request.tokenAccount || typeof ownership.lpMint !== 'string' || !ownership.lpMint) {
         throw new Error('VERIFIER_OWNED_LP_EVIDENCE_REQUIRED');
       }
+      if (!Number.isSafeInteger(ownership.poolContextSlot) || ownership.poolContextSlot <= 0 ||
+          !Number.isSafeInteger(ownership.tokenAccountContextSlot) || ownership.tokenAccountContextSlot <= 0) {
+        throw new Error('VERIFIER_OWNED_LP_PROVENANCE_REQUIRED');
+      }
 
       const tx = await deps.transactionReader.readFinalizedTransaction(request.signature);
       const delta = verifyCpmmContributionDeltas(tx, {
         wallet: request.wallet, poolId: request.poolId, lpMint: ownership.lpMint,
       });
+      if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
       const observedAtSeconds = deps.nowSeconds();
       if (!Number.isSafeInteger(observedAtSeconds) || observedAtSeconds < 0) throw new Error('TRUSTED_TIME_INVALID');
 
