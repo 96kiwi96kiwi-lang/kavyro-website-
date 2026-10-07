@@ -2,7 +2,6 @@
 // Caller supplies identity only; LP mint and contributed KVRO amount come from independent verifiers.
 import { WRAPPED_SOL_MINT } from './config.js';
 import { verifyCpmmContributionDeltas } from './cpmm-contribution-delta-verifier.js';
-import { verifyCpmmContributionReceipt } from './cpmm-contribution-receipt.js';
 import { composeContributionEntitlementEvidence } from './contribution-entitlement-evidence.js';
 
 /**
@@ -47,12 +46,14 @@ export function createVerifiedContributionComposition(deps) {
       const observedAtSeconds = deps.nowSeconds();
       if (!Number.isSafeInteger(observedAtSeconds) || observedAtSeconds < 0) throw new Error('TRUSTED_TIME_INVALID');
 
-      const receipt = verifyCpmmContributionReceipt({
+      // Keep the raw verifier-owned receipt shape here. The downstream entitlement
+      // boundary performs the single canonical receipt validation before composing it.
+      const receipt = {
         ...delta,
         quoteMint: WRAPPED_SOL_MINT,
         observedAtSeconds,
         maxAgeSeconds: deps.maxReceiptAgeSeconds,
-      });
+      };
 
       // Adapt only verifier-owned current-ownership facts. Current LP amount is intentionally omitted:
       // it proves neither historical contribution nor contributed KVRO amount.
