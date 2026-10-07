@@ -81,3 +81,25 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
  assert.equal(result.ownershipEvidenceId,'TA:100:101');
  assert.equal(result.payoutAuthorized,false);
 });
+
+
+test('fails closed when finalized evidence signature differs from the requested signature',async()=>{
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
+  transactionReader:{readFinalizedTransaction:async()=>({...finalizedTx,signature:'OTHER'})},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ await assert.rejects(()=>composition.verify(request),/CONTRIBUTION_SIGNATURE_MISMATCH/);
+});
+
+test('fails closed when verifier-owned LP provenance slots are missing or invalid',async()=>{
+ for (const bad of [
+  {...ownership,poolContextSlot:undefined},
+  {...ownership,poolContextSlot:0},
+  {...ownership,tokenAccountContextSlot:-1},
+  {...ownership,tokenAccountContextSlot:1.5},
+ ]) {
+  const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
+  await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_PROVENANCE_REQUIRED/);
+ }
+});
