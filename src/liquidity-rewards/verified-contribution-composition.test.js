@@ -40,7 +40,7 @@ test('caller cannot supply LP mint, contribution amount or proof flags through r
   /** @type {{wallet:string,poolId:string,tokenAccount:string}|undefined} */
   let seen;
   const composition=createVerifiedContributionComposition(deps({
-    ownershipVerifier:{verifyCurrentOwnership:async(r)=>{seen=r; throw new Error('STOP_AFTER_OWNERSHIP_REQUEST');}},
+    ownershipVerifier:{verifyCurrentOwnership:async(/** @type {{wallet:string,poolId:string,tokenAccount:string}} */ r)=>{seen=r; throw new Error('STOP_AFTER_OWNERSHIP_REQUEST');}},
   }));
   const spoofedRequest=/** @type {any} */({...request,lpMint:'SPOOFED',contributedKvroBaseUnits:999999n,ownershipProven:true});
   await assert.rejects(()=>composition.verify(spoofedRequest),/STOP_AFTER_OWNERSHIP_REQUEST/);
