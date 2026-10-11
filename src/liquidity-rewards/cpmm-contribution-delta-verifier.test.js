@@ -41,3 +41,21 @@ test('permits a newly created LP destination while keeping canonical KVRO contin
  assert.equal(result.kvroTransferredBaseUnits,300n);
  assert.equal(result.lpMintedBaseUnits,25n);
 });
+
+test('rejects malformed token-balance account indices fail closed',()=>{
+ for(const invalid of [-1,1.5,'1',null,undefined]) {
+  const bad=/** @type {any} */(structuredClone(tx));
+  bad.meta.preTokenBalances[0].accountIndex=invalid;
+  assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/TOKEN_BALANCE_INDEX_INVALID/);
+ }
+ const malformedEntry=/** @type {any} */(structuredClone(tx));
+ malformedEntry.meta.postTokenBalances.push(null);
+ assert.throws(()=>verifyCpmmContributionDeltas(malformedEntry,{wallet,poolId,lpMint}),/TOKEN_BALANCE_ENTRY_INVALID/);
+});
+test('rejects duplicate account indices independently in pre and post balances',()=>{
+ for(const side of ['preTokenBalances','postTokenBalances']) {
+  const bad=/** @type {any} */(structuredClone(tx));
+  bad.meta[side].push({...bad.meta[side][0]});
+  assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/TOKEN_BALANCE_INDEX_DUPLICATE/);
+ }
+});
