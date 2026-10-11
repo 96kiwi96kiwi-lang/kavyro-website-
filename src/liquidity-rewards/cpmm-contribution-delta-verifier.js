@@ -50,10 +50,14 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
     if(!Number.isSafeInteger(x.accountIndex) || /** @type {number} */(x.accountIndex)<0) {
       throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_INDEX_INVALID');
     }
+    const index=/** @type {number} */(x.accountIndex);
+    if(index>=keyStrings.length || !keyStrings[index]) {
+      throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ACCOUNT_BINDING_INVALID');
+    }
     const mint=str(x.mint), owner=str(x.owner), tokenAmount=amount(x.uiTokenAmount);
     if(!mint||!owner) throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_IDENTITY_INVALID');
     if(tokenAmount===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
-    return {index:/** @type {number} */(x.accountIndex),mint,owner,amount:tokenAmount};
+    return {index,mint,owner,amount:tokenAmount};
   };
   const before=pre.map(norm), after=post.map(norm);
   /** @param {readonly NormalizedBalance[]} balances */
