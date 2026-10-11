@@ -28,3 +28,16 @@ test('malformed existing token amounts cannot be substituted with zero',()=>{
   }
  }
 });
+
+test('rejects missing or relabeled canonical KVRO post-balance instead of treating it as zero',()=>{
+ const missingPost={...tx,meta:{...tx.meta,postTokenBalances:[bal(1,'FAKE',wallet,700),bal(2,lpMint,wallet,25)]}};
+ assert.throws(()=>verifyCpmmContributionDeltas(missingPost,{wallet,poolId,lpMint}),/KVRO_BALANCE_CONTINUITY/);
+ const missingPre={...tx,meta:{...tx.meta,preTokenBalances:[bal(1,'FAKE',wallet,1000),bal(2,lpMint,wallet,5)]}};
+ assert.throws(()=>verifyCpmmContributionDeltas(missingPre,{wallet,poolId,lpMint}),/KVRO_BALANCE_CONTINUITY/);
+});
+test('permits a newly created LP destination while keeping canonical KVRO continuity strict',()=>{
+ const newLpAccount={...tx,meta:{...tx.meta,preTokenBalances:[bal(1,KAVYRO_MINT,wallet,1000)]}};
+ const result=verifyCpmmContributionDeltas(newLpAccount,{wallet,poolId,lpMint});
+ assert.equal(result.kvroTransferredBaseUnits,300n);
+ assert.equal(result.lpMintedBaseUnits,25n);
+});

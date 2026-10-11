@@ -103,3 +103,31 @@ test('fails closed when verifier-owned LP provenance slots are missing or invali
   await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_PROVENANCE_REQUIRED/);
  }
 });
+
+test('trusted composition rejects nonfinalized, stale and inconsistent historical timestamps',async()=>{
+ for(const tx of [
+  {...finalizedTx,finalized:false},
+  {...finalizedTx,blockTimeSeconds:2000},
+  {...finalizedTx,slot:0},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
+   transactionReader:{readFinalizedTransaction:async()=>tx},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(()=>composition.verify(request));
+ }
+});
+test('trusted composition rejects forged canonical KVRO transfer and absent LP mint credit',async()=>{
+ for(const tx of [
+  {...finalizedTx,meta:{...finalizedTx.meta,postTokenBalances:[bal(1,'FAKE','W',700),bal(2,'LP','W',25)]}},
+  {...finalizedTx,meta:{...finalizedTx.meta,postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',5)]}},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
+   transactionReader:{readFinalizedTransaction:async()=>tx},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(()=>composition.verify(request));
+ }
+});

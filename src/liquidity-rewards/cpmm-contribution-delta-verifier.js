@@ -52,6 +52,15 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   /** @param {NormalizedBalance|null} x @returns {x is NormalizedBalance} */
   const present=(x)=>x!==null;
   const before=pre.map(norm).filter(present), after=post.map(norm).filter(present);
+  /** @param {readonly NormalizedBalance[]} balances @param {string} mint @param {string} owner */
+  const indicesFor=(balances,mint,owner)=>new Set(balances.filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
+  const kvroBeforeIndices=indicesFor(before,KAVYRO_MINT,wallet);
+  const kvroAfterIndices=indicesFor(after,KAVYRO_MINT,wallet);
+  if (kvroBeforeIndices.size===0 || kvroAfterIndices.size===0 ||
+      kvroBeforeIndices.size!==kvroAfterIndices.size ||
+      [...kvroBeforeIndices].some(index=>!kvroAfterIndices.has(index))) {
+    throw new Error('CPMM_CONTRIBUTION_KVRO_BALANCE_CONTINUITY_REQUIRED');
+  }
   /** @param {string} mint @param {string} owner */
   const delta=(mint,owner)=>{
     const indices=new Set([...before,...after].filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
