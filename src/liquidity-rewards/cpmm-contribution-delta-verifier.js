@@ -5,7 +5,7 @@ import { KAVYRO_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { verifyRaydiumCpmmDepositInstruction } from './raydium-cpmm-deposit-verifier.js';
 
-/** @typedef {{index:unknown,mint:string,owner:string,amount:bigint|null}} NormalizedBalance */
+/** @typedef {{index:number,mint:string,owner:string,amount:bigint}} NormalizedBalance */
 /** @param {unknown} v */
 const str = (v) => typeof v === 'string' ? v.trim() : '';
 
@@ -43,15 +43,29 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
 
   const pre=Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : [];
   const post=Array.isArray(meta.postTokenBalances) ? meta.postTokenBalances : [];
-  /** @param {unknown} b @returns {NormalizedBalance|null} */
+  /** @param {unknown} b @returns {NormalizedBalance} */
   const norm=(b)=>{
-    if(!b||typeof b!=='object') return null;
+    if(!b||typeof b!=='object') throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ENTRY_INVALID');
     const x=/** @type {Record<string,unknown>} */(b);
-    return {index:x.accountIndex,mint:str(x.mint),owner:str(x.owner),amount:amount(x.uiTokenAmount)};
+    if(!Number.isSafeInteger(x.accountIndex) || /** @type {number} */(x.accountIndex)<0) {
+      throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_INDEX_INVALID');
+    }
+    const mint=str(x.mint), owner=str(x.owner), tokenAmount=amount(x.uiTokenAmount);
+    if(!mint||!owner) throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_IDENTITY_INVALID');
+    if(tokenAmount===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
+    return {index:/** @type {number} */(x.accountIndex),mint,owner,amount:tokenAmount};
   };
-  /** @param {NormalizedBalance|null} x @returns {x is NormalizedBalance} */
-  const present=(x)=>x!==null;
-  const before=pre.map(norm).filter(present), after=post.map(norm).filter(present);
+  const before=pre.map(norm), after=post.map(norm);
+  /** @param {readonly NormalizedBalance[]} balances */
+  const requireUniqueIndices=(balances)=>{
+    const seen=new Set();
+    for(const balance of balances) {
+      if(seen.has(balance.index)) throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_INDEX_DUPLICATE');
+      seen.add(balance.index);
+    }
+  };
+  requireUniqueIndices(before);
+  requireUniqueIndices(after);
   /** @param {readonly NormalizedBalance[]} balances @param {string} mint @param {string} owner */
   const indicesFor=(balances,mint,owner)=>new Set(balances.filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
   const kvroBeforeIndices=indicesFor(before,KAVYRO_MINT,wallet);
@@ -70,7 +84,6 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
       const preBalance=before.find(x=>x.index===i&&x.mint===mint&&x.owner===owner);
       const a=postBalance ? postBalance.amount : 0n;
       const b=preBalance ? preBalance.amount : 0n;
-      if(a===null||b===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
       d += a-b;
     }
     return d;
