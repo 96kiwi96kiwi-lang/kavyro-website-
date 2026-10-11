@@ -59,3 +59,11 @@ test('rejects duplicate account indices independently in pre and post balances',
   assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/TOKEN_BALANCE_INDEX_DUPLICATE/);
  }
 });
+
+test('rejects token-balance indices that do not bind to transaction account keys',()=>{
+ for(const side of ['preTokenBalances','postTokenBalances']) {
+  const bad=/** @type {any} */(structuredClone(tx));
+  bad.meta[side][0].accountIndex=bad.transaction.message.accountKeys.length;
+  assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/TOKEN_BALANCE_ACCOUNT_BINDING_INVALID/);
+ }
+});
