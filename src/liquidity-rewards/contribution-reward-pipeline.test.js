@@ -5,6 +5,7 @@ import { bindContributionEvidenceToObservation } from './contribution-eligibilit
 import { evaluateHoldingEligibility } from './holding-eligibility.js';
 import { requireVerifiedEntitlement } from './entitlement-boundary.js';
 import { createReplayRecord, appendReplayRecord } from './replay-ledger.js';
+import { createPersistentReplayLedger } from './persistent-replay-ledger.js';
 import { createObservationAuditEvidence } from './integrity-audit.js';
 import { createReviewableRewardCandidate } from './reward-candidate.js';
 import { evaluatePayoutGate } from './payout-gate.js';
@@ -56,4 +57,36 @@ test('reusing the same verified contribution and ownership evidence fails replay
  const replay=createReplayRecord(entitlement);
  const ledger=appendReplayRecord([],replay);
  assert.throws(()=>appendReplayRecord(ledger,replay),/ENTITLEMENT_REPLAY_DETECTED|EVIDENCE_REUSE_DETECTED/);
+});
+
+test('persistent replay survives restart while reviewable proposal remains behind payout gate',()=>{
+ const contribution=composeContributionEntitlementEvidence(receipt,ownership);
+ const observations=[40,41,42].map((period)=>bindContributionEvidenceToObservation(receipt,rawObservation(period)));
+ const eligibility=evaluateHoldingEligibility({observations,minimumPeriods:3});
+ const entitlement=requireVerifiedEntitlement(contribution,eligibility);
+ const replay=createReplayRecord(entitlement);
+ /** @type {readonly unknown[]} */
+ let persisted=[];
+ const storage={
+  load:()=>persisted,
+  /** @param {readonly unknown[]} entries */
+  save:(entries)=>{persisted=structuredClone(entries);}
+ };
+ const firstProcess=createPersistentReplayLedger(storage);
+ assert.deepEqual(firstProcess.record(replay),{recorded:true,payoutAuthorized:false});
+ const restartedProcess=createPersistentReplayLedger(storage);
+ assert.throws(()=>restartedProcess.record(replay),/ENTITLEMENT_REPLAY_DETECTED|EVIDENCE_REUSE_DETECTED/);
+ const terminal=observations[observations.length-1];
+ const audit=createObservationAuditEvidence(terminal);
+ assert.equal(audit.valid,true);
+ if(!audit.valid) throw new Error('AUDIT_EXPECTED');
+ const candidate=createReviewableRewardCandidate(entitlement,replay,audit.evidence,audit.digest);
+ const gate=evaluatePayoutGate({config:{enabled:true,poolId:'P',poolStatus:POOL_STATUS.VERIFIED},entitlement:candidate});
+ assert.equal(candidate.reviewable,true);
+ assert.equal(candidate.payoutAuthorized,false);
+ assert.equal(gate.authorized,false);
+ assert.equal(gate.canBuildTransaction,false);
+ assert.equal(gate.canSignTransaction,false);
+ assert.equal(gate.canSendTransaction,false);
+ assert.ok(gate.reasons.includes('PAYOUT_IMPLEMENTATION_NOT_AVAILABLE'));
 });
