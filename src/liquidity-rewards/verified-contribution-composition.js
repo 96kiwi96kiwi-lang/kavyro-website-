@@ -15,7 +15,7 @@ function requireFinalizedWalletSigner(txValue, wallet) {
   const keys = Array.isArray(message.accountKeys) ? message.accountKeys : [];
   const matches = keys.filter((value) => value && typeof value === 'object' &&
     'pubkey' in value && value.pubkey === wallet);
-  if (matches.length !== 1 || !(/** @type {Record<string, unknown>} */ (matches[0])).signer) {
+  if (matches.length !== 1 || (/** @type {Record<string, unknown>} */ (matches[0])).signer !== true) {
     throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
   }
 }
