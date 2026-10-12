@@ -65,6 +65,9 @@ export function createVerifiedContributionComposition(deps) {
         wallet: request.wallet, poolId: request.poolId, lpMint: ownership.lpMint,
       });
       if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
+      if (delta.lpDestinationTokenAccount !== ownership.tokenAccount) {
+        throw new Error('HISTORICAL_LP_POSITION_MISMATCH');
+      }
       const observedAtSeconds = deps.nowSeconds();
       if (!Number.isSafeInteger(observedAtSeconds) || observedAtSeconds < 0) throw new Error('TRUSTED_TIME_INVALID');
 
