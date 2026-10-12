@@ -70,18 +70,20 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   };
   requireUniqueIndices(before);
   requireUniqueIndices(after);
-  /** @param {readonly NormalizedBalance[]} balances @param {string} mint @param {string} owner */
-  const indicesFor=(balances,mint,owner)=>new Set(balances.filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
-  const kvroBeforeIndices=indicesFor(before,KAVYRO_MINT,wallet);
-  const kvroAfterIndices=indicesFor(after,KAVYRO_MINT,wallet);
-  if (kvroBeforeIndices.size===0 || kvroAfterIndices.size===0 ||
-      kvroBeforeIndices.size!==kvroAfterIndices.size ||
+  // Balance deltas are necessary but not sufficient: bind them to the exact token accounts
+  // named by the published Raydium CPMM deposit instruction.
+  const deposit=verifyRaydiumCpmmDepositInstruction(txEvidence,{wallet,poolId,lpMint});
+  /** @param {readonly NormalizedBalance[]} balances @param {string} mint @param {string} owner @param {string} account */
+  const indicesFor=(balances,mint,owner,account)=>new Set(balances.filter(x=>x.mint===mint&&x.owner===owner&&keyStrings[x.index]===account).map(x=>x.index));
+  const kvroBeforeIndices=indicesFor(before,KAVYRO_MINT,wallet,deposit.kvroSourceAccount);
+  const kvroAfterIndices=indicesFor(after,KAVYRO_MINT,wallet,deposit.kvroSourceAccount);
+  if (kvroBeforeIndices.size!==1 || kvroAfterIndices.size!==1 ||
       [...kvroBeforeIndices].some(index=>!kvroAfterIndices.has(index))) {
     throw new Error('CPMM_CONTRIBUTION_KVRO_BALANCE_CONTINUITY_REQUIRED');
   }
-  /** @param {string} mint @param {string} owner */
-  const delta=(mint,owner)=>{
-    const indices=new Set([...before,...after].filter(x=>x.mint===mint&&x.owner===owner).map(x=>x.index));
+  /** @param {string} mint @param {string} owner @param {string} account */
+  const delta=(mint,owner,account)=>{
+    const indices=new Set([...before,...after].filter(x=>x.mint===mint&&x.owner===owner&&keyStrings[x.index]===account).map(x=>x.index));
     let d=0n;
     for(const i of indices){
       const postBalance=after.find(x=>x.index===i&&x.mint===mint&&x.owner===owner);
@@ -92,15 +94,14 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
     }
     return d;
   };
-  // Balance deltas are necessary but not sufficient: require the concrete Raydium CPMM deposit instruction too.
-  verifyRaydiumCpmmDepositInstruction(txEvidence,{wallet,poolId,lpMint});
-  const kvroDelta=delta(KAVYRO_MINT,wallet);
-  const lpDelta=delta(lpMint,wallet);
+  const kvroDelta=delta(KAVYRO_MINT,wallet,deposit.kvroSourceAccount);
+  const lpDelta=delta(lpMint,wallet,deposit.lpDestinationAccount);
   if (kvroDelta >= 0n) throw new Error('CPMM_CONTRIBUTION_KVRO_DEBIT_REQUIRED');
   if (lpDelta <= 0n) throw new Error('CPMM_CONTRIBUTION_LP_MINT_CREDIT_REQUIRED');
   return Object.freeze({
     finalized:true,signature:str(e.signature),wallet,poolId,poolType:'RAYDIUM_CPMM',lpMint,
-    kvroMint:KAVYRO_MINT,kvroSourceOwner:wallet,kvroTransferredBaseUnits:-kvroDelta,
+    kvroMint:KAVYRO_MINT,kvroSourceOwner:wallet,kvroSourceTokenAccount:deposit.kvroSourceAccount,
+    lpDestinationTokenAccount:deposit.lpDestinationAccount,kvroTransferredBaseUnits:-kvroDelta,
     lpMintedBaseUnits:lpDelta,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false,
   });
 }
