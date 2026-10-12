@@ -31,12 +31,15 @@ export function verifyRaydiumCpmmDepositInstruction(txEvidence,expected){
  for(const raw of instructions){
   if(!raw||typeof raw!=='object')continue;const ix=/** @type {Record<string,unknown>} */(raw);
   if(key(ix.programId)!==RAYDIUM_CPMM_PROGRAM_ID||!Array.isArray(ix.accounts))continue;
-  const accounts=ix.accounts.map(key);if(accounts.length<11)continue;
+  const accounts=ix.accounts.map(key);if(accounts.length<13)continue;
   const data=b58(ix.data);if(!data||data.length<8)continue;
   if(!RAYDIUM_CPMM_DEPOSIT_DISCRIMINATOR.every((v,i)=>data[i]===v))continue;
-  if(accounts[0]!==wallet||accounts[2]!==poolId||accounts[10]!==lpMint)throw new Error('CPMM_DEPOSIT_ACCOUNT_BINDING_MISMATCH');
-  if(accounts[8]!==KAVYRO_MINT&&accounts[9]!==KAVYRO_MINT)throw new Error('CPMM_DEPOSIT_KVRO_MINT_MISMATCH');
-  return Object.freeze({verified:true,semanticKind:'RAYDIUM_CPMM_DEPOSIT',wallet,poolId,lpMint,kvroMint:KAVYRO_MINT,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false});
+  if(accounts[0]!==wallet||accounts[2]!==poolId||accounts[12]!==lpMint)throw new Error('CPMM_DEPOSIT_ACCOUNT_BINDING_MISMATCH');
+  const kvroIsToken0=accounts[10]===KAVYRO_MINT,kvroIsToken1=accounts[11]===KAVYRO_MINT;
+  if(kvroIsToken0===kvroIsToken1)throw new Error('CPMM_DEPOSIT_KVRO_MINT_MISMATCH');
+  const lpDestinationAccount=accounts[3],kvroSourceAccount=kvroIsToken0?accounts[4]:accounts[5];
+  if(!lpDestinationAccount||!kvroSourceAccount)throw new Error('CPMM_DEPOSIT_ACCOUNT_BINDING_MISMATCH');
+  return Object.freeze({verified:true,semanticKind:'RAYDIUM_CPMM_DEPOSIT',wallet,poolId,lpMint,kvroMint:KAVYRO_MINT,kvroSourceAccount,lpDestinationAccount,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false});
  }
  throw new Error('CPMM_DEPOSIT_INSTRUCTION_REQUIRED');
 }
