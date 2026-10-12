@@ -56,10 +56,10 @@ test('composition exposes read-only capabilities only',()=>{
 
 
 const depositData='HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX';
-const depositAccounts=['W','AUTH','P','LP_DEST','KVRO_SOURCE','QUOTE_SOURCE','V0','V1','TOKEN_PROGRAM','TOKEN_2022_PROGRAM',KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
+const depositAccounts=['W','AUTH','P','TA','KVRO_SOURCE','QUOTE_SOURCE','V0','V1','TOKEN_PROGRAM','TOKEN_2022_PROGRAM',KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
 /** @param {number} accountIndex @param {string} mint @param {string} owner @param {string|number|bigint} amount */
 const bal=(accountIndex,mint,owner,amount)=>({accountIndex,mint,owner,uiTokenAmount:{amount:String(amount),decimals:0,uiAmount:null,uiAmountString:String(amount)}});
-const finalizedTx={exists:true,finalized:true,signature:'SIG',slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','LP_DEST','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
+const finalizedTx={exists:true,finalized:true,signature:'SIG',slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
 
 test('positive composition binds verifier provenance, signature, wallet, pool, LP mint, LP position and historical KVRO amount',async()=>{
  let ownershipRequest;let transactionSignature;
@@ -147,4 +147,17 @@ test('fails closed unless the contribution wallet is uniquely marked as a finali
   });
   await assert.rejects(()=>composition.verify(request),/FINALIZED_WALLET_SIGNER_REQUIRED/);
  }
+});
+
+test('fails closed when current LP position differs from the historical deposit destination',async()=>{
+ const otherOwnership={...ownership,tokenAccount:'OTHER_TA'};
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>otherOwnership},
+  transactionReader:{readFinalizedTransaction:async()=>finalizedTx},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ await assert.rejects(
+  ()=>composition.verify({...request,tokenAccount:'OTHER_TA'}),
+  /HISTORICAL_LP_POSITION_MISMATCH/,
+ );
 });
