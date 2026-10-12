@@ -4,6 +4,22 @@ import { WRAPPED_SOL_MINT } from './config.js';
 import { verifyCpmmContributionDeltas } from './cpmm-contribution-delta-verifier.js';
 import { composeContributionEntitlementEvidence } from './contribution-entitlement-evidence.js';
 
+/** @param {unknown} txValue @param {string} wallet */
+function requireFinalizedWalletSigner(txValue, wallet) {
+  if (!txValue || typeof txValue !== 'object') throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
+  const txEvidence = /** @type {Record<string, unknown>} */ (txValue);
+  if (!txEvidence.transaction || typeof txEvidence.transaction !== 'object') throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
+  const transaction = /** @type {Record<string, unknown>} */ (txEvidence.transaction);
+  if (!transaction.message || typeof transaction.message !== 'object') throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
+  const message = /** @type {Record<string, unknown>} */ (transaction.message);
+  const keys = Array.isArray(message.accountKeys) ? message.accountKeys : [];
+  const matches = keys.filter((value) => value && typeof value === 'object' &&
+    'pubkey' in value && value.pubkey === wallet);
+  if (matches.length !== 1 || (/** @type {Record<string, unknown>} */ (matches[0])).signer !== true) {
+    throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
+  }
+}
+
 /**
  * @param {{
  *   ownershipVerifier:{verifyCurrentOwnership:(r:{poolId:string,tokenAccount:string,wallet:string})=>Promise<any>},
@@ -44,6 +60,7 @@ export function createVerifiedContributionComposition(deps) {
       }
 
       const tx = await deps.transactionReader.readFinalizedTransaction(request.signature);
+      requireFinalizedWalletSigner(tx, request.wallet);
       const delta = verifyCpmmContributionDeltas(tx, {
         wallet: request.wallet, poolId: request.poolId, lpMint: ownership.lpMint,
       });
