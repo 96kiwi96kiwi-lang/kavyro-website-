@@ -60,6 +60,11 @@ export function createSolanaFinalizedTransactionReader(options) {
       }
       const meta = /** @type {Record<string, unknown>} */ (r.meta);
       if (meta.err != null) throw new Error('Solana transaction failed');
+      const transaction = /** @type {Record<string, unknown>} */ (r.transaction);
+      const signatures = Array.isArray(transaction.signatures) ? transaction.signatures : [];
+      if (!signatures.some((value) => clean(value) === exactSignature)) {
+        throw new Error('Solana transaction signature mismatch');
+      }
       return Object.freeze({
         exists: true,
         finalized: true,
