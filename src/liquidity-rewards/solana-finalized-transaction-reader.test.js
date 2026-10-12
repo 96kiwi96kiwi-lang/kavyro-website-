@@ -43,3 +43,18 @@ test('rejects empty signatures and RPC errors', async () => {
   await assert.rejects(() => reader.readFinalizedTransaction(''), TypeError);
   await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /transaction error/);
 });
+
+test('rejects finalized RPC payloads that do not contain the requested signature', async () => {
+  for (const signatures of [[], ['OTHER'], [null, 'OTHER']]) {
+    const reader = createSolanaFinalizedTransactionReader({
+      rpcUrl: 'https://rpc.invalid',
+      fetchImpl: async () => ({ ok: true, json: async () => ({ result: {
+        slot: 123,
+        blockTime: 1000,
+        transaction: { signatures, message: {} },
+        meta: { err: null, preTokenBalances: [], postTokenBalances: [] },
+      } }) }),
+    });
+    await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /signature mismatch/);
+  }
+});
