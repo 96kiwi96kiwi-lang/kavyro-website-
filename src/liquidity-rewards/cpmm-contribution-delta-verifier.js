@@ -100,7 +100,7 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (lpDelta <= 0n) throw new Error('CPMM_CONTRIBUTION_LP_MINT_CREDIT_REQUIRED');
   return Object.freeze({
     finalized:true,signature:str(e.signature),wallet,poolId,poolType:'RAYDIUM_CPMM',lpMint,
-    kvroMint:KAVYRO_MINT,kvroSourceOwner:wallet,kvroSourceTokenAccount:deposit.kvroSourceAccount,
+    kvroMint:KAVYRO_MINT,quoteMint:deposit.quoteMint,kvroSourceOwner:wallet,kvroSourceTokenAccount:deposit.kvroSourceAccount,
     lpDestinationTokenAccount:deposit.lpDestinationAccount,kvroTransferredBaseUnits:-kvroDelta,
     lpMintedBaseUnits:lpDelta,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false,
   });

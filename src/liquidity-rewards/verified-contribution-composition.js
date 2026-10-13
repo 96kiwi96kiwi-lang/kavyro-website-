@@ -1,6 +1,5 @@
 // Read-only production composition for verifier-owned CPMM contribution evidence.
 // Caller supplies identity only; LP mint and contributed KVRO amount come from independent verifiers.
-import { WRAPPED_SOL_MINT } from './config.js';
 import { verifyCpmmContributionDeltas } from './cpmm-contribution-delta-verifier.js';
 import { composeContributionEntitlementEvidence } from './contribution-entitlement-evidence.js';
 
@@ -75,7 +74,6 @@ export function createVerifiedContributionComposition(deps) {
       // boundary performs the single canonical receipt validation before composing it.
       const receipt = {
         ...delta,
-        quoteMint: WRAPPED_SOL_MINT,
         observedAtSeconds,
         maxAgeSeconds: deps.maxReceiptAgeSeconds,
       };
