@@ -1,7 +1,8 @@
 // Read-only semantic verifier for the concrete Raydium CPMM Anchor deposit instruction.
 // Pinned to Raydium's published CPMM IDL deposit discriminator/account order.
-import { KAVYRO_MINT } from './config.js';
+import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
+import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 export const RAYDIUM_CPMM_DEPOSIT_DISCRIMINATOR = Object.freeze([242,35,198,137,82,225,242,182]);
 const BASE58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -35,11 +36,14 @@ export function verifyRaydiumCpmmDepositInstruction(txEvidence,expected){
   const data=b58(ix.data);if(!data||data.length<8)continue;
   if(!RAYDIUM_CPMM_DEPOSIT_DISCRIMINATOR.every((v,i)=>data[i]===v))continue;
   if(accounts[0]!==wallet||accounts[2]!==poolId||accounts[12]!==lpMint)throw new Error('CPMM_DEPOSIT_ACCOUNT_BINDING_MISMATCH');
+  if(accounts[8]!==SPL_TOKEN_PROGRAM_ID||accounts[9]!==TOKEN_2022_PROGRAM_ID)throw new Error('CPMM_DEPOSIT_TOKEN_PROGRAM_MISMATCH');
   const kvroIsToken0=accounts[10]===KAVYRO_MINT,kvroIsToken1=accounts[11]===KAVYRO_MINT;
   if(kvroIsToken0===kvroIsToken1)throw new Error('CPMM_DEPOSIT_KVRO_MINT_MISMATCH');
+  const quoteMint=kvroIsToken0?accounts[11]:accounts[10];
+  if(quoteMint!==WRAPPED_SOL_MINT)throw new Error('CPMM_DEPOSIT_QUOTE_MINT_MISMATCH');
   const lpDestinationAccount=accounts[3],kvroSourceAccount=kvroIsToken0?accounts[4]:accounts[5];
   if(!lpDestinationAccount||!kvroSourceAccount)throw new Error('CPMM_DEPOSIT_ACCOUNT_BINDING_MISMATCH');
-  return Object.freeze({verified:true,semanticKind:'RAYDIUM_CPMM_DEPOSIT',wallet,poolId,lpMint,kvroMint:KAVYRO_MINT,kvroSourceAccount,lpDestinationAccount,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false});
+  return Object.freeze({verified:true,semanticKind:'RAYDIUM_CPMM_DEPOSIT',wallet,poolId,lpMint,kvroMint:KAVYRO_MINT,quoteMint,kvroSourceAccount,lpDestinationAccount,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false});
  }
  throw new Error('CPMM_DEPOSIT_INSTRUCTION_REQUIRED');
 }
