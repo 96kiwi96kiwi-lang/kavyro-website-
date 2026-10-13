@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createVerifiedContributionComposition } from './verified-contribution-composition.js';
 import { KAVYRO_MINT } from './config.js';
 import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
+import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
 const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:100,tokenAccountContextSlot:101};
@@ -56,7 +57,7 @@ test('composition exposes read-only capabilities only',()=>{
 
 
 const depositData='HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX';
-const depositAccounts=['W','AUTH','P','TA','KVRO_SOURCE','QUOTE_SOURCE','V0','V1','TOKEN_PROGRAM','TOKEN_2022_PROGRAM',KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
+const depositAccounts=['W','AUTH','P','TA','KVRO_SOURCE','QUOTE_SOURCE','V0','V1',SPL_TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID,KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
 /** @param {number} accountIndex @param {string} mint @param {string} owner @param {string|number|bigint} amount */
 const bal=(accountIndex,mint,owner,amount)=>({accountIndex,mint,owner,uiTokenAmount:{amount:String(amount),decimals:0,uiAmount:null,uiAmountString:String(amount)}});
 const finalizedTx={exists:true,finalized:true,signature:'SIG',slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
