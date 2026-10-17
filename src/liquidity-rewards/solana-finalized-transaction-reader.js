@@ -19,35 +19,42 @@ export function createSolanaFinalizedTransactionReader(options) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   let requestId = 0;
 
+  /**
+   * @param {string} method
+   * @param {unknown[]} params
+   * @returns {Promise<Record<string, unknown>>}
+   */
+  async function callRpc(method, params) {
+    const response = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
+    });
+    if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+    if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
+      throw new Error(`Solana RPC ${method} error`);
+    }
+    return /** @type {Record<string, unknown>} */ (payload);
+  }
+
   return Object.freeze({
     /**
      * Fetch one transaction by exact signature. This transport deliberately
      * returns raw finalized RPC evidence; CPMM decoding/binding is a separate boundary.
+     * A second read-only signature-status query independently binds finalized status
+     * to the same signature and slot so missing/pruned/reorg-inconsistent evidence fails closed.
      * @param {unknown} signature
      */
     async readFinalizedTransaction(signature) {
       const exactSignature = clean(signature);
       if (!exactSignature) throw new TypeError('transaction signature is required');
-      const response = await fetchImpl(endpoint, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: ++requestId,
-          method: 'getTransaction',
-          params: [exactSignature, {
-            commitment: 'finalized',
-            encoding: 'jsonParsed',
-            maxSupportedTransactionVersion: 0,
-          }],
-        }),
-      });
-      if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
-      if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
-      const payload = await response.json();
-      if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
-        throw new Error('Solana RPC transaction error');
-      }
+      const payload = await callRpc('getTransaction', [exactSignature, {
+        commitment: 'finalized',
+        encoding: 'jsonParsed',
+        maxSupportedTransactionVersion: 0,
+      }]);
       const result = payload.result;
       if (result == null) return Object.freeze({ exists: false, signature: exactSignature });
       if (typeof result !== 'object') throw new Error('Malformed Solana transaction response');
@@ -65,6 +72,29 @@ export function createSolanaFinalizedTransactionReader(options) {
       if (!signatures.some((value) => clean(value) === exactSignature)) {
         throw new Error('Solana transaction signature mismatch');
       }
+
+      const statusPayload = await callRpc('getSignatureStatuses', [
+        [exactSignature],
+        { searchTransactionHistory: true },
+      ]);
+      const statusResult = statusPayload.result;
+      if (!statusResult || typeof statusResult !== 'object') {
+        throw new Error('Solana finalized signature status required');
+      }
+      const statusValue = /** @type {Record<string, unknown>} */ (statusResult).value;
+      if (!Array.isArray(statusValue) || statusValue.length !== 1 ||
+          !statusValue[0] || typeof statusValue[0] !== 'object') {
+        throw new Error('Solana finalized signature status required');
+      }
+      const status = /** @type {Record<string, unknown>} */ (statusValue[0]);
+      if (status.err != null ||
+          status.confirmationStatus !== 'finalized' ||
+          status.confirmations !== null ||
+          !Number.isSafeInteger(status.slot) ||
+          status.slot !== r.slot) {
+        throw new Error('Solana finalized signature status mismatch');
+      }
+
       return Object.freeze({
         exists: true,
         finalized: true,
