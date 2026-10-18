@@ -74,7 +74,11 @@ test('cross-checks exact finalized transaction and signature status evidence wit
   assert.equal(result.exists, true);
   assert.equal(result.finalized, true);
   assert.equal(result.signature, 'SIG');
-  assert.deepEqual(endpoints, ['https://rpc.invalid', 'https://status-rpc.invalid']);
+  assert.deepEqual(endpoints, [
+    'https://rpc.invalid',
+    'https://status-rpc.invalid',
+    'https://status-rpc.invalid',
+  ]);
   assert.deepEqual(requests, [
     {
       method: 'getTransaction',
@@ -83,10 +87,16 @@ test('cross-checks exact finalized transaction and signature status evidence wit
       id: 1,
     },
     {
+      method: 'getTransaction',
+      params: ['SIG', { commitment: 'finalized', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
+      jsonrpc: '2.0',
+      id: 2,
+    },
+    {
       method: 'getSignatureStatuses',
       params: [['SIG'], { searchTransactionHistory: true }],
       jsonrpc: '2.0',
-      id: 2,
+      id: 3,
     },
   ]);
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
@@ -117,6 +127,34 @@ test('rejects finalized RPC payloads that do not contain the requested signature
       fetchImpl: async () => ({ ok: true, json: async () => ({ result: finalizedTransaction(signatures) }) }),
     });
     await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /signature mismatch/);
+  }
+});
+
+test('fails closed when independent RPC transaction evidence differs', async () => {
+  const base = finalizedTransaction();
+  const mismatches = [
+    { ...base, slot: 124 },
+    { ...base, blockTime: 1001 },
+    { ...base, transaction: { ...base.transaction, message: { accountKeys: ['FORGED'] } } },
+    { ...base, meta: { ...base.meta, postTokenBalances: [{ accountIndex: 1 }] } },
+  ];
+
+  for (const independentResult of mismatches) {
+    const reader = createSolanaFinalizedTransactionReader({
+      rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async (url, init) => {
+        const request = JSON.parse(init.body);
+        if (request.method === 'getTransaction') {
+          const result = url === 'https://rpc.invalid' ? base : independentResult;
+          return { ok: true, json: async () => ({ result }) };
+        }
+        return { ok: true, json: async () => ({ result: finalizedStatusResult() }) };
+      },
+    });
+    await assert.rejects(
+      () => reader.readFinalizedTransaction('SIG'),
+      /Independent Solana transaction evidence mismatch/,
+    );
   }
 });
 
