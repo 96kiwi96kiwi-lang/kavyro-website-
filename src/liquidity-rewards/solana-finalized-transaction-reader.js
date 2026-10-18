@@ -4,6 +4,21 @@
 /** @param {unknown} value @returns {string} */
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
+/** @param {unknown} value @returns {string} */
+function canonicalJson(value) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`;
+  }
+  throw new Error('Malformed Solana RPC JSON evidence');
+}
+
 /**
  * @typedef {{ok: boolean, status?: number, json?: () => Promise<unknown>}} ReadOnlyHttpResponse
  * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
@@ -69,11 +84,12 @@ export function createSolanaFinalizedTransactionReader(options) {
     async readFinalizedTransaction(signature) {
       const exactSignature = clean(signature);
       if (!exactSignature) throw new TypeError('transaction signature is required');
-      const payload = await callRpc(transactionEndpoint, 'getTransaction', [exactSignature, {
+      const transactionParams = [exactSignature, {
         commitment: 'finalized',
         encoding: 'jsonParsed',
         maxSupportedTransactionVersion: 0,
-      }]);
+      }];
+      const payload = await callRpc(transactionEndpoint, 'getTransaction', transactionParams);
       const result = payload.result;
       if (result == null) return Object.freeze({ exists: false, signature: exactSignature });
       if (typeof result !== 'object') throw new Error('Malformed Solana transaction response');
@@ -90,6 +106,28 @@ export function createSolanaFinalizedTransactionReader(options) {
       const signatures = Array.isArray(transaction.signatures) ? transaction.signatures : [];
       if (!signatures.some((value) => clean(value) === exactSignature)) {
         throw new Error('Solana transaction signature mismatch');
+      }
+
+      const independentPayload = await callRpc(statusEndpoint, 'getTransaction', transactionParams);
+      const independentResult = independentPayload.result;
+      if (!independentResult || typeof independentResult !== 'object') {
+        throw new Error('Independent Solana transaction evidence required');
+      }
+      const primaryEvidence = {
+        slot: r.slot,
+        blockTime: r.blockTime,
+        transaction: r.transaction,
+        meta: r.meta,
+      };
+      const independent = /** @type {Record<string, unknown>} */ (independentResult);
+      const independentEvidence = {
+        slot: independent.slot,
+        blockTime: independent.blockTime,
+        transaction: independent.transaction,
+        meta: independent.meta,
+      };
+      if (canonicalJson(primaryEvidence) !== canonicalJson(independentEvidence)) {
+        throw new Error('Independent Solana transaction evidence mismatch');
       }
 
       const statusPayload = await callRpc(statusEndpoint, 'getSignatureStatuses', [
