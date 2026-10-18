@@ -104,8 +104,9 @@ export function createSolanaFinalizedTransactionReader(options) {
       if (meta.err != null) throw new Error('Solana transaction failed');
       const transaction = /** @type {Record<string, unknown>} */ (r.transaction);
       const signatures = Array.isArray(transaction.signatures) ? transaction.signatures : [];
-      if (!signatures.some((value) => clean(value) === exactSignature)) {
-        throw new Error('Solana transaction signature mismatch');
+      const matchingSignatures = signatures.filter((value) => clean(value) === exactSignature);
+      if (clean(signatures[0]) !== exactSignature || matchingSignatures.length !== 1) {
+        throw new Error('Solana transaction primary signature mismatch');
       }
 
       const independentPayload = await callRpc(statusEndpoint, 'getTransaction', transactionParams);
