@@ -58,6 +58,36 @@ test('requires a distinct status RPC origin before reading evidence', () => {
     }),
     /absolute/,
   );
+  for (const timeoutMs of [0, -1, 1.5, 30_001, '10']) {
+    assert.throws(
+      () => createSolanaFinalizedTransactionReader({
+        rpcUrl: 'https://rpc.invalid',
+        statusRpcUrl: 'https://status-rpc.invalid',
+        timeoutMs,
+        fetchImpl,
+      }),
+      /timeoutMs must be an integer/,
+    );
+  }
+});
+
+
+test('aborts and fails closed when a read-only RPC call exceeds its timeout', async () => {
+  let aborted = false;
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => {
+        aborted = true;
+        reject(new Error('aborted'));
+      }, { once: true });
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /getTransaction timeout/);
+  assert.equal(aborted, true);
 });
 
 test('cross-checks exact finalized transaction and signature status evidence without transaction capability', async () => {
