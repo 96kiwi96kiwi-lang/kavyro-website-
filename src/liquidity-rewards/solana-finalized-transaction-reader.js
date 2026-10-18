@@ -15,8 +15,9 @@ const clean = (value) => typeof value === 'string' ? value.trim() : '';
 export function createSolanaFinalizedTransactionReader(options) {
   const endpoint = clean(options?.rpcUrl);
   if (!endpoint) throw new TypeError('rpcUrl is required');
-  const fetchImpl = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
-  if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
+  const configuredFetch = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
+  if (typeof configuredFetch !== 'function') throw new TypeError('fetchImpl must be a function');
+  const fetchImpl = /** @type {ReadOnlyFetch} */ (configuredFetch);
   let requestId = 0;
 
   /**
