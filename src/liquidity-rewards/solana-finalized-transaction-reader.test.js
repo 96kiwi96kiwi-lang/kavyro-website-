@@ -18,6 +18,12 @@ const finalizedSignatureStatus = (overrides = {}) => ({
   ...overrides,
 });
 
+/** @param {unknown} [status] @param {unknown} [contextSlot] */
+const finalizedStatusResult = (status = finalizedSignatureStatus(), contextSlot = 130) => ({
+  context: { slot: contextSlot },
+  value: [status],
+});
+
 test('cross-checks exact finalized transaction and signature status evidence without transaction capability', async () => {
   /** @type {Array<{ method: string, params: unknown[] }>} */
   const requests = [];
@@ -30,7 +36,7 @@ test('cross-checks exact finalized transaction and signature status evidence wit
         return { ok: true, json: async () => ({ result: finalizedTransaction() }) };
       }
       if (request.method === 'getSignatureStatuses') {
-        return { ok: true, json: async () => ({ result: { value: [finalizedSignatureStatus()] } }) };
+        return { ok: true, json: async () => ({ result: finalizedStatusResult() }) };
       }
       throw new Error(`Unexpected RPC method: ${request.method}`);
     },
@@ -103,7 +109,7 @@ test('fails closed unless signature status independently confirms the same final
         if (request.method === 'getTransaction') {
           return { ok: true, json: async () => ({ result: finalizedTransaction() }) };
         }
-        return { ok: true, json: async () => ({ result: { value: [status] } }) };
+        return { ok: true, json: async () => ({ result: finalizedStatusResult(status) }) };
       },
     });
     await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /finalized signature status/);
@@ -113,7 +119,10 @@ test('fails closed unless signature status independently confirms the same final
 test('fails closed on malformed or errored signature status RPC evidence', async () => {
   for (const payload of [
     { result: null },
-    { result: { value: [] } },
+    { result: { context: { slot: 130 }, value: [] } },
+    { result: { value: [finalizedSignatureStatus()] } },
+    { result: finalizedStatusResult(finalizedSignatureStatus(), 122) },
+    { result: finalizedStatusResult(finalizedSignatureStatus(), 123.5) },
     { error: { code: -1 } },
   ]) {
     const reader = createSolanaFinalizedTransactionReader({
