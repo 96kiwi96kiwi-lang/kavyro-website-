@@ -59,10 +59,11 @@ export function createSolanaFinalizedTransactionReader(options) {
    * @returns {Promise<Record<string, unknown>>}
    */
   async function callRpc(endpoint, method, params) {
+    const id = ++requestId;
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
     });
     if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
     if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
@@ -70,7 +71,11 @@ export function createSolanaFinalizedTransactionReader(options) {
     if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
       throw new Error(`Solana RPC ${method} error`);
     }
-    return /** @type {Record<string, unknown>} */ (payload);
+    const rpcPayload = /** @type {Record<string, unknown>} */ (payload);
+    if (rpcPayload.jsonrpc !== '2.0' || rpcPayload.id !== id) {
+      throw new Error(`Solana RPC ${method} response mismatch`);
+    }
+    return rpcPayload;
   }
 
   return Object.freeze({
