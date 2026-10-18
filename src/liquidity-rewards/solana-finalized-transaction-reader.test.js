@@ -51,7 +51,7 @@ test('cross-checks exact finalized transaction and signature status evidence wit
       method: 'getSignatureStatuses',
       params: [['SIG'], { searchTransactionHistory: true }],
       jsonrpc: '2.0',
-      id: 1,
+      id: 2,
     },
   ]);
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
