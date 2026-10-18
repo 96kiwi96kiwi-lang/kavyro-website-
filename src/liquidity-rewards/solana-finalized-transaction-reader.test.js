@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSolanaFinalizedTransactionReader } from './solana-finalized-transaction-reader.js';
 
+/** @param {unknown[]} [signatures] */
 const finalizedTransaction = (signatures = ['SIG']) => ({
   slot: 123,
   blockTime: 1000,
