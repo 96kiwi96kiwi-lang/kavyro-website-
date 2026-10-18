@@ -34,7 +34,10 @@ const rpcResponse = (init, payload) => {
 };
 
 test('requires a distinct status RPC origin before reading evidence', () => {
-  const fetchImpl = async (_url, init) => rpcResponse(init, { result: null });
+  const fetchImpl = async (
+    /** @type {string} */ _url,
+    /** @type {{body: string}} */ init,
+  ) => rpcResponse(init, { result: null });
   assert.throws(
     () => createSolanaFinalizedTransactionReader({ rpcUrl: 'https://rpc.invalid', fetchImpl }),
     /statusRpcUrl is required/,
