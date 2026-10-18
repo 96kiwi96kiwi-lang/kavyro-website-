@@ -10,22 +10,40 @@ const clean = (value) => typeof value === 'string' ? value.trim() : '';
  */
 
 /**
- * @param {{rpcUrl?: unknown, fetchImpl?: ReadOnlyFetch}} options
+ * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, fetchImpl?: ReadOnlyFetch}} options
  */
 export function createSolanaFinalizedTransactionReader(options) {
-  const endpoint = clean(options?.rpcUrl);
-  if (!endpoint) throw new TypeError('rpcUrl is required');
+  const transactionEndpoint = clean(options?.rpcUrl);
+  const statusEndpoint = clean(options?.statusRpcUrl);
+  if (!transactionEndpoint) throw new TypeError('rpcUrl is required');
+  if (!statusEndpoint) throw new TypeError('statusRpcUrl is required');
+  let transactionOrigin;
+  let statusOrigin;
+  try {
+    transactionOrigin = new URL(transactionEndpoint).origin;
+    statusOrigin = new URL(statusEndpoint).origin;
+  } catch {
+    throw new TypeError('Solana RPC URLs must be absolute');
+  }
+  if (!/^https?:$/.test(new URL(transactionEndpoint).protocol) ||
+      !/^https?:$/.test(new URL(statusEndpoint).protocol)) {
+    throw new TypeError('Solana RPC URLs must use HTTP(S)');
+  }
+  if (transactionOrigin === statusOrigin) {
+    throw new TypeError('statusRpcUrl must use an independent origin');
+  }
   const configuredFetch = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
   if (typeof configuredFetch !== 'function') throw new TypeError('fetchImpl must be a function');
   const fetchImpl = /** @type {ReadOnlyFetch} */ (configuredFetch);
   let requestId = 0;
 
   /**
+   * @param {string} endpoint
    * @param {string} method
    * @param {unknown[]} params
    * @returns {Promise<Record<string, unknown>>}
    */
-  async function callRpc(method, params) {
+  async function callRpc(endpoint, method, params) {
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -51,7 +69,7 @@ export function createSolanaFinalizedTransactionReader(options) {
     async readFinalizedTransaction(signature) {
       const exactSignature = clean(signature);
       if (!exactSignature) throw new TypeError('transaction signature is required');
-      const payload = await callRpc('getTransaction', [exactSignature, {
+      const payload = await callRpc(transactionEndpoint, 'getTransaction', [exactSignature, {
         commitment: 'finalized',
         encoding: 'jsonParsed',
         maxSupportedTransactionVersion: 0,
@@ -74,7 +92,7 @@ export function createSolanaFinalizedTransactionReader(options) {
         throw new Error('Solana transaction signature mismatch');
       }
 
-      const statusPayload = await callRpc('getSignatureStatuses', [
+      const statusPayload = await callRpc(statusEndpoint, 'getSignatureStatuses', [
         [exactSignature],
         { searchTransactionHistory: true },
       ]);
