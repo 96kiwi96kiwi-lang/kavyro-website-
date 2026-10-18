@@ -21,11 +21,11 @@ function canonicalJson(value) {
 
 /**
  * @typedef {{ok: boolean, status?: number, json?: () => Promise<unknown>}} ReadOnlyHttpResponse
- * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
+ * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
  */
 
 /**
- * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, fetchImpl?: ReadOnlyFetch}} options
+ * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, timeoutMs?: unknown, fetchImpl?: ReadOnlyFetch}} options
  */
 export function createSolanaFinalizedTransactionReader(options) {
   const transactionEndpoint = clean(options?.rpcUrl);
@@ -50,6 +50,13 @@ export function createSolanaFinalizedTransactionReader(options) {
   const configuredFetch = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
   if (typeof configuredFetch !== 'function') throw new TypeError('fetchImpl must be a function');
   const fetchImpl = /** @type {ReadOnlyFetch} */ (configuredFetch);
+  const configuredTimeout = options?.timeoutMs ?? 10_000;
+  if (!Number.isSafeInteger(configuredTimeout) ||
+      /** @type {number} */ (configuredTimeout) <= 0 ||
+      /** @type {number} */ (configuredTimeout) > 30_000) {
+    throw new TypeError('timeoutMs must be an integer from 1 to 30000');
+  }
+  const timeoutMs = /** @type {number} */ (configuredTimeout);
   let requestId = 0;
 
   /**
@@ -60,22 +67,32 @@ export function createSolanaFinalizedTransactionReader(options) {
    */
   async function callRpc(endpoint, method, params) {
     const id = ++requestId;
-    const response = await fetchImpl(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-    });
-    if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
-    if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
-    const payload = await response.json();
-    if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
-      throw new Error(`Solana RPC ${method} error`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        signal: controller.signal,
+      });
+      if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+      if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
+      const payload = await response.json();
+      if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
+        throw new Error(`Solana RPC ${method} error`);
+      }
+      const rpcPayload = /** @type {Record<string, unknown>} */ (payload);
+      if (rpcPayload.jsonrpc !== '2.0' || rpcPayload.id !== id) {
+        throw new Error(`Solana RPC ${method} response mismatch`);
+      }
+      return rpcPayload;
+    } catch (error) {
+      if (controller.signal.aborted) throw new Error(`Solana RPC ${method} timeout`);
+      throw error;
+    } finally {
+      clearTimeout(timer);
     }
-    const rpcPayload = /** @type {Record<string, unknown>} */ (payload);
-    if (rpcPayload.jsonrpc !== '2.0' || rpcPayload.id !== id) {
-      throw new Error(`Solana RPC ${method} response mismatch`);
-    }
-    return rpcPayload;
   }
 
   return Object.freeze({
