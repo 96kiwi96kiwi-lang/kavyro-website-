@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSolanaFinalizedTransactionReader } from './solana-finalized-transaction-reader.js';
 
+const SIGNATURE = '1'.repeat(64);
+const OTHER_SIGNATURE = `${'1'.repeat(63)}2`;
+
 /** @param {unknown[]} [signatures] */
-const finalizedTransaction = (signatures = ['SIG']) => ({
+const finalizedTransaction = (signatures = [SIGNATURE]) => ({
   slot: 123,
   blockTime: 1000,
   transaction: { signatures, message: {} },
@@ -86,7 +89,7 @@ test('aborts and fails closed when a read-only RPC call exceeds its timeout', as
     }),
   });
 
-  await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /getTransaction timeout/);
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
   assert.equal(aborted, true);
 });
 
@@ -111,11 +114,11 @@ test('cross-checks exact finalized transaction and signature status evidence wit
     },
   });
 
-  const result = await reader.readFinalizedTransaction('SIG');
+  const result = await reader.readFinalizedTransaction(SIGNATURE);
 
   assert.equal(result.exists, true);
   assert.equal(result.finalized, true);
-  assert.equal(result.signature, 'SIG');
+  assert.equal(result.signature, SIGNATURE);
   assert.deepEqual(endpoints, [
     'https://rpc.invalid',
     'https://status-rpc.invalid',
@@ -124,19 +127,19 @@ test('cross-checks exact finalized transaction and signature status evidence wit
   assert.deepEqual(requests, [
     {
       method: 'getTransaction',
-      params: ['SIG', { commitment: 'finalized', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
+      params: [SIGNATURE, { commitment: 'finalized', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
       jsonrpc: '2.0',
       id: 1,
     },
     {
       method: 'getTransaction',
-      params: ['SIG', { commitment: 'finalized', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
+      params: [SIGNATURE, { commitment: 'finalized', encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }],
       jsonrpc: '2.0',
       id: 2,
     },
     {
       method: 'getSignatureStatuses',
-      params: [['SIG'], { searchTransactionHistory: true }],
+      params: [[SIGNATURE], { searchTransactionHistory: true }],
       jsonrpc: '2.0',
       id: 3,
     },
@@ -156,35 +159,56 @@ test('binds every RPC response to its JSON-RPC version and request id', async ()
       rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
       fetchImpl: async () => ({ ok: true, json: async () => envelope }),
     });
-    await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /response mismatch/);
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /response mismatch/);
   }
 });
 
 test('fails closed on failed or malformed transaction evidence', async () => {
   const failed = createSolanaFinalizedTransactionReader({ rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid', fetchImpl: async (_url, init) => rpcResponse(init, { result: { slot: 1, blockTime: 2, transaction: {}, meta: { err: { custom: 1 } } } }) });
-  await assert.rejects(() => failed.readFinalizedTransaction('SIG'), /transaction failed/);
+  await assert.rejects(() => failed.readFinalizedTransaction(SIGNATURE), /transaction failed/);
   const malformed = createSolanaFinalizedTransactionReader({ rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid', fetchImpl: async (_url, init) => rpcResponse(init, { result: { slot: 0 } }) });
-  await assert.rejects(() => malformed.readFinalizedTransaction('SIG'), /Malformed/);
+  await assert.rejects(() => malformed.readFinalizedTransaction(SIGNATURE), /Malformed/);
 });
 
 test('reports missing finalized transaction without inventing contribution facts', async () => {
   const reader = createSolanaFinalizedTransactionReader({ rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid', fetchImpl: async (_url, init) => rpcResponse(init, { result: null }) });
-  assert.deepEqual(await reader.readFinalizedTransaction('SIG'), { exists: false, signature: 'SIG' });
+  assert.deepEqual(await reader.readFinalizedTransaction(SIGNATURE), { exists: false, signature: SIGNATURE });
 });
 
-test('rejects empty signatures and transaction RPC errors', async () => {
-  const reader = createSolanaFinalizedTransactionReader({ rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid', fetchImpl: async (_url, init) => rpcResponse(init, { error: { code: -1 } }) });
-  await assert.rejects(() => reader.readFinalizedTransaction(''), TypeError);
-  await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /getTransaction error/);
+test('rejects malformed signatures before any transaction RPC request', async () => {
+  let requests = 0;
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async (_url, init) => {
+      requests += 1;
+      return rpcResponse(init, { error: { code: -1 } });
+    },
+  });
+  for (const signature of [
+    '',
+    ` ${SIGNATURE}`,
+    '0'.repeat(64),
+    '1'.repeat(63),
+    '1'.repeat(65),
+    123,
+  ]) {
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(signature),
+      /canonical base58 encoding of 64 bytes/,
+    );
+  }
+  assert.equal(requests, 0);
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction error/);
+  assert.equal(requests, 1);
 });
 
 test('rejects finalized RPC payloads unless the requested signature is first and unique', async () => {
-  for (const signatures of [[], ['OTHER'], [null, 'SIG'], ['OTHER', 'SIG'], ['SIG', 'SIG']]) {
+  for (const signatures of [[], [OTHER_SIGNATURE], [null, SIGNATURE], [OTHER_SIGNATURE, SIGNATURE], [SIGNATURE, SIGNATURE]]) {
     const reader = createSolanaFinalizedTransactionReader({
       rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
       fetchImpl: async (_url, init) => rpcResponse(init, { result: finalizedTransaction(signatures) }),
     });
-    await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /signature mismatch/);
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /signature mismatch/);
   }
 });
 
@@ -210,7 +234,7 @@ test('fails closed when independent RPC transaction evidence differs', async () 
       },
     });
     await assert.rejects(
-      () => reader.readFinalizedTransaction('SIG'),
+      () => reader.readFinalizedTransaction(SIGNATURE),
       /Independent Solana transaction evidence mismatch/,
     );
   }
@@ -236,7 +260,7 @@ test('fails closed unless signature status independently confirms the same final
         return rpcResponse(init, { result: finalizedStatusResult(status) });
       },
     });
-    await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /finalized signature status/);
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /finalized signature status/);
   }
 });
 
@@ -259,6 +283,6 @@ test('fails closed on malformed or errored signature status RPC evidence', async
         return rpcResponse(init, payload);
       },
     });
-    await assert.rejects(() => reader.readFinalizedTransaction('SIG'), /getSignatureStatuses|finalized signature status/);
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getSignatureStatuses|finalized signature status/);
   }
 });
