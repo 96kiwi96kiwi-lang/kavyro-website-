@@ -4,6 +4,28 @@
 /** @param {unknown} value @returns {string} */
 const clean = (value) => typeof value === 'string' ? value.trim() : '';
 
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+/** @param {string} value @returns {boolean} */
+function isEncodedSolanaSignature(value) {
+  let leadingZeroBytes = 0;
+  while (leadingZeroBytes < value.length && value[leadingZeroBytes] === '1') {
+    leadingZeroBytes += 1;
+  }
+  let numeric = 0n;
+  for (const character of value) {
+    const digit = BASE58_ALPHABET.indexOf(character);
+    if (digit < 0) return false;
+    numeric = numeric * 58n + BigInt(digit);
+  }
+  let nonZeroBytes = 0;
+  while (numeric > 0n) {
+    numeric >>= 8n;
+    nonZeroBytes += 1;
+  }
+  return leadingZeroBytes + nonZeroBytes === 64;
+}
+
 /** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -105,7 +127,10 @@ export function createSolanaFinalizedTransactionReader(options) {
      */
     async readFinalizedTransaction(signature) {
       const exactSignature = clean(signature);
-      if (!exactSignature) throw new TypeError('transaction signature is required');
+      if (typeof signature !== 'string' || signature !== exactSignature ||
+          !isEncodedSolanaSignature(exactSignature)) {
+        throw new TypeError('transaction signature must be canonical base58 encoding of 64 bytes');
+      }
       const transactionParams = [exactSignature, {
         commitment: 'finalized',
         encoding: 'jsonParsed',
