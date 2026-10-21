@@ -36,7 +36,7 @@ const rpcResponse = (init, payload) => {
   };
 };
 
-test('requires a distinct status RPC origin before reading evidence', () => {
+test('requires a distinct status RPC hostname before reading evidence', () => {
   const fetchImpl = async (
     /** @type {string} */ _url,
     /** @type {{body: string}} */ init,
@@ -51,7 +51,7 @@ test('requires a distinct status RPC origin before reading evidence', () => {
       statusRpcUrl: 'https://rpc.invalid/status',
       fetchImpl,
     }),
-    /independent origin/,
+    /independent hostname/,
   );
   assert.throws(
     () => createSolanaFinalizedTransactionReader({
@@ -70,6 +70,41 @@ test('requires a distinct status RPC origin before reading evidence', () => {
         fetchImpl,
       }),
       /timeoutMs must be an integer/,
+    );
+  }
+});
+
+test('rejects transport downgrade, same-host port aliases, and URL userinfo', () => {
+  const fetchImpl = async (
+    /** @type {string} */ _url,
+    /** @type {{body: string}} */ init,
+  ) => rpcResponse(init, { result: null });
+
+  for (const options of [
+    {
+      rpcUrl: 'http://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      expected: /must use HTTPS/,
+    },
+    {
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'http://status-rpc.invalid',
+      expected: /must use HTTPS/,
+    },
+    {
+      rpcUrl: 'https://rpc.invalid:443',
+      statusRpcUrl: 'https://rpc.invalid:8443',
+      expected: /independent hostname/,
+    },
+    {
+      rpcUrl: 'https://token@rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      expected: /userinfo credentials/,
+    },
+  ]) {
+    assert.throws(
+      () => createSolanaFinalizedTransactionReader({ ...options, fetchImpl }),
+      options.expected,
     );
   }
 });
