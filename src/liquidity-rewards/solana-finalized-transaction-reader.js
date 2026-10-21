@@ -54,20 +54,23 @@ export function createSolanaFinalizedTransactionReader(options) {
   const statusEndpoint = clean(options?.statusRpcUrl);
   if (!transactionEndpoint) throw new TypeError('rpcUrl is required');
   if (!statusEndpoint) throw new TypeError('statusRpcUrl is required');
-  let transactionOrigin;
-  let statusOrigin;
+  let transactionUrl;
+  let statusUrl;
   try {
-    transactionOrigin = new URL(transactionEndpoint).origin;
-    statusOrigin = new URL(statusEndpoint).origin;
+    transactionUrl = new URL(transactionEndpoint);
+    statusUrl = new URL(statusEndpoint);
   } catch {
     throw new TypeError('Solana RPC URLs must be absolute');
   }
-  if (!/^https?:$/.test(new URL(transactionEndpoint).protocol) ||
-      !/^https?:$/.test(new URL(statusEndpoint).protocol)) {
-    throw new TypeError('Solana RPC URLs must use HTTP(S)');
+  if (transactionUrl.protocol !== 'https:' || statusUrl.protocol !== 'https:') {
+    throw new TypeError('Solana RPC URLs must use HTTPS');
   }
-  if (transactionOrigin === statusOrigin) {
-    throw new TypeError('statusRpcUrl must use an independent origin');
+  if (transactionUrl.username || transactionUrl.password ||
+      statusUrl.username || statusUrl.password) {
+    throw new TypeError('Solana RPC URLs must not contain userinfo credentials');
+  }
+  if (transactionUrl.hostname === statusUrl.hostname) {
+    throw new TypeError('statusRpcUrl must use an independent hostname');
   }
   const configuredFetch = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
   if (typeof configuredFetch !== 'function') throw new TypeError('fetchImpl must be a function');
