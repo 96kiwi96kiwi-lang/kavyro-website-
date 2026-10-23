@@ -160,9 +160,10 @@ test('cross-checks exact finalized transaction and signature status evidence wit
   assert.deepEqual(endpoints, [
     'https://rpc.invalid',
     'https://status-rpc.invalid',
+    'https://rpc.invalid',
     'https://status-rpc.invalid',
   ]);
-  assert.deepEqual(redirectPolicies, ['error', 'error', 'error']);
+  assert.deepEqual(redirectPolicies, ['error', 'error', 'error', 'error']);
   assert.deepEqual(requests, [
     {
       method: 'getTransaction',
@@ -182,8 +183,38 @@ test('cross-checks exact finalized transaction and signature status evidence wit
       jsonrpc: '2.0',
       id: 3,
     },
+    {
+      method: 'getSignatureStatuses',
+      params: [[SIGNATURE], { searchTransactionHistory: true }],
+      jsonrpc: '2.0',
+      id: 4,
+    },
   ]);
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
+});
+
+test('requires each RPC provider to independently report the exact finalized signature slot', async () => {
+  for (const invalidEndpoint of ['https://rpc.invalid', 'https://status-rpc.invalid']) {
+    const reader = createSolanaFinalizedTransactionReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async (url, init) => {
+        const request = JSON.parse(init.body);
+        if (request.method === 'getTransaction') {
+          return rpcResponse(init, { result: finalizedTransaction() });
+        }
+        const result = url === invalidEndpoint
+          ? finalizedStatusResult(finalizedSignatureStatus({ confirmationStatus: 'confirmed', confirmations: 1 }))
+          : finalizedStatusResult();
+        return rpcResponse(init, { result });
+      },
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /finalized signature status mismatch/,
+    );
+  }
 });
 
 test('binds every RPC response to its JSON-RPC version and request id', async () => {
