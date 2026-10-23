@@ -142,12 +142,39 @@ export function createSolanaFinalizedTransactionReader(options) {
         encoding: 'jsonParsed',
         maxSupportedTransactionVersion: 0,
       }];
+      const statusParams = [
+        [exactSignature],
+        { searchTransactionHistory: true },
+      ];
       const payload = await callRpc(transactionEndpoint, 'getTransaction', transactionParams);
       const independentPayload = await callRpc(statusEndpoint, 'getTransaction', transactionParams);
       const result = payload.result;
       const independentResult = independentPayload.result;
       if (result == null || independentResult == null) {
         if (result == null && independentResult == null) {
+          for (const [endpoint, source] of [
+            [transactionEndpoint, 'Primary'],
+            [statusEndpoint, 'Independent'],
+          ]) {
+            const absencePayload = await callRpc(endpoint, 'getSignatureStatuses', statusParams);
+            const absenceResult = absencePayload.result;
+            if (!absenceResult || typeof absenceResult !== 'object') {
+              throw new Error(`${source} Solana transaction absence status required`);
+            }
+            const absenceRecord = /** @type {Record<string, unknown>} */ (absenceResult);
+            const absenceContext = absenceRecord.context;
+            const absenceValue = absenceRecord.value;
+            const absenceContextSlot = absenceContext && typeof absenceContext === 'object'
+              ? /** @type {Record<string, unknown>} */ (absenceContext).slot
+              : undefined;
+            if (!Number.isSafeInteger(absenceContextSlot) ||
+                /** @type {number} */ (absenceContextSlot) < 0 ||
+                !Array.isArray(absenceValue) ||
+                absenceValue.length !== 1 ||
+                absenceValue[0] !== null) {
+              throw new Error(`${source} Solana transaction absence status mismatch`);
+            }
+          }
           return Object.freeze({ exists: false, signature: exactSignature });
         }
         throw new Error('Independent Solana transaction absence evidence mismatch');
@@ -189,10 +216,6 @@ export function createSolanaFinalizedTransactionReader(options) {
         throw new Error('Independent Solana transaction evidence mismatch');
       }
 
-      const statusParams = [
-        [exactSignature],
-        { searchTransactionHistory: true },
-      ];
       for (const [endpoint, source] of [
         [transactionEndpoint, 'Primary'],
         [statusEndpoint, 'Independent'],
