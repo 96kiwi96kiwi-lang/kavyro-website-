@@ -184,34 +184,40 @@ export function createSolanaFinalizedTransactionReader(options) {
         throw new Error('Independent Solana transaction evidence mismatch');
       }
 
-      const statusPayload = await callRpc(statusEndpoint, 'getSignatureStatuses', [
+      const statusParams = [
         [exactSignature],
         { searchTransactionHistory: true },
-      ]);
-      const statusResult = statusPayload.result;
-      if (!statusResult || typeof statusResult !== 'object') {
-        throw new Error('Solana finalized signature status required');
-      }
-      const statusRecord = /** @type {Record<string, unknown>} */ (statusResult);
-      const context = statusRecord.context;
-      if (!context || typeof context !== 'object') {
-        throw new Error('Solana finalized signature status context required');
-      }
-      const contextSlot = /** @type {Record<string, unknown>} */ (context).slot;
-      const statusValue = statusRecord.value;
-      if (!Array.isArray(statusValue) || statusValue.length !== 1 ||
-          !statusValue[0] || typeof statusValue[0] !== 'object') {
-        throw new Error('Solana finalized signature status required');
-      }
-      const status = /** @type {Record<string, unknown>} */ (statusValue[0]);
-      if (!Number.isSafeInteger(contextSlot) ||
-          /** @type {number} */ (contextSlot) < /** @type {number} */ (r.slot) ||
-          status.err != null ||
-          status.confirmationStatus !== 'finalized' ||
-          status.confirmations !== null ||
-          !Number.isSafeInteger(status.slot) ||
-          status.slot !== r.slot) {
-        throw new Error('Solana finalized signature status mismatch');
+      ];
+      for (const [endpoint, source] of [
+        [transactionEndpoint, 'Primary'],
+        [statusEndpoint, 'Independent'],
+      ]) {
+        const statusPayload = await callRpc(endpoint, 'getSignatureStatuses', statusParams);
+        const statusResult = statusPayload.result;
+        if (!statusResult || typeof statusResult !== 'object') {
+          throw new Error(`${source} Solana finalized signature status required`);
+        }
+        const statusRecord = /** @type {Record<string, unknown>} */ (statusResult);
+        const context = statusRecord.context;
+        if (!context || typeof context !== 'object') {
+          throw new Error(`${source} Solana finalized signature status context required`);
+        }
+        const contextSlot = /** @type {Record<string, unknown>} */ (context).slot;
+        const statusValue = statusRecord.value;
+        if (!Array.isArray(statusValue) || statusValue.length !== 1 ||
+            !statusValue[0] || typeof statusValue[0] !== 'object') {
+          throw new Error(`${source} Solana finalized signature status required`);
+        }
+        const status = /** @type {Record<string, unknown>} */ (statusValue[0]);
+        if (!Number.isSafeInteger(contextSlot) ||
+            /** @type {number} */ (contextSlot) < /** @type {number} */ (r.slot) ||
+            status.err != null ||
+            status.confirmationStatus !== 'finalized' ||
+            status.confirmations !== null ||
+            !Number.isSafeInteger(status.slot) ||
+            status.slot !== r.slot) {
+          throw new Error(`${source} Solana finalized signature status mismatch`);
+        }
       }
 
       return Object.freeze({
