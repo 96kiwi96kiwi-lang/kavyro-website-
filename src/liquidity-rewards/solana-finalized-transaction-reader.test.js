@@ -241,6 +241,7 @@ test('fails closed on failed or malformed transaction evidence', async () => {
 });
 
 test('reports a missing finalized transaction only when both RPC providers agree', async () => {
+  /** @type {string[]} */
   const endpoints = [];
   const reader = createSolanaFinalizedTransactionReader({
     rpcUrl: 'https://rpc.invalid',
