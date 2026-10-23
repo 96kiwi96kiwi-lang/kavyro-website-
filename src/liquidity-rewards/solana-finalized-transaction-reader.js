@@ -43,7 +43,7 @@ function canonicalJson(value) {
 
 /**
  * @typedef {{ok: boolean, status?: number, json?: () => Promise<unknown>}} ReadOnlyHttpResponse
- * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
+ * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal, redirect: 'error'}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
  */
 
 /**
@@ -100,6 +100,9 @@ export function createSolanaFinalizedTransactionReader(options) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
         signal: controller.signal,
+        // A redirect could collapse the configured endpoint separation or cross
+        // a transport boundary. Evidence reads must stay bound to the exact URL.
+        redirect: 'error',
       });
       if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
       if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
