@@ -143,8 +143,15 @@ export function createSolanaFinalizedTransactionReader(options) {
         maxSupportedTransactionVersion: 0,
       }];
       const payload = await callRpc(transactionEndpoint, 'getTransaction', transactionParams);
+      const independentPayload = await callRpc(statusEndpoint, 'getTransaction', transactionParams);
       const result = payload.result;
-      if (result == null) return Object.freeze({ exists: false, signature: exactSignature });
+      const independentResult = independentPayload.result;
+      if (result == null || independentResult == null) {
+        if (result == null && independentResult == null) {
+          return Object.freeze({ exists: false, signature: exactSignature });
+        }
+        throw new Error('Independent Solana transaction absence evidence mismatch');
+      }
       if (typeof result !== 'object') throw new Error('Malformed Solana transaction response');
       const r = /** @type {Record<string, unknown>} */ (result);
       if (!Number.isSafeInteger(r.slot) || /** @type {number} */ (r.slot) <= 0 ||
@@ -162,9 +169,7 @@ export function createSolanaFinalizedTransactionReader(options) {
         throw new Error('Solana transaction primary signature mismatch');
       }
 
-      const independentPayload = await callRpc(statusEndpoint, 'getTransaction', transactionParams);
-      const independentResult = independentPayload.result;
-      if (!independentResult || typeof independentResult !== 'object') {
+      if (typeof independentResult !== 'object') {
         throw new Error('Independent Solana transaction evidence required');
       }
       const primaryEvidence = {
