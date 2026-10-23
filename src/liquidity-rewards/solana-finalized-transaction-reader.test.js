@@ -133,11 +133,14 @@ test('cross-checks exact finalized transaction and signature status evidence wit
   const requests = [];
   /** @type {string[]} */
   const endpoints = [];
+  /** @type {Array<string | undefined>} */
+  const redirectPolicies = [];
   const reader = createSolanaFinalizedTransactionReader({
     rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
     fetchImpl: async (url, init) => {
       const request = JSON.parse(init.body);
       endpoints.push(url);
+      redirectPolicies.push(init.redirect);
       requests.push(request);
       if (request.method === 'getTransaction') {
         return rpcResponse(init, { result: finalizedTransaction() });
@@ -159,6 +162,7 @@ test('cross-checks exact finalized transaction and signature status evidence wit
     'https://status-rpc.invalid',
     'https://status-rpc.invalid',
   ]);
+  assert.deepEqual(redirectPolicies, ['error', 'error', 'error']);
   assert.deepEqual(requests, [
     {
       method: 'getTransaction',
