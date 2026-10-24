@@ -41,10 +41,81 @@ function canonicalJson(value) {
   throw new Error('Malformed Solana RPC JSON evidence');
 }
 
+const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
+
 /**
- * @typedef {{ok: boolean, status?: number, json?: () => Promise<unknown>}} ReadOnlyHttpResponse
+ * @typedef {{read: () => Promise<{done: boolean, value?: Uint8Array}>, cancel: () => Promise<void>}} ReadOnlyBodyReader
+ * @typedef {{
+ *   ok: boolean,
+ *   status?: number,
+ *   headers?: {get: (name: string) => string | null},
+ *   body?: {getReader: () => ReadOnlyBodyReader} | null,
+ *   text?: () => Promise<string>
+ * }} ReadOnlyHttpResponse
  * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal, redirect: 'error'}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
  */
+
+/**
+ * Consume JSON-RPC evidence with a hard byte cap. The caller's abort timer stays
+ * active while this function reads the response stream.
+ * @param {ReadOnlyHttpResponse} response
+ * @param {string} method
+ * @returns {Promise<unknown>}
+ */
+async function readBoundedJson(response, method) {
+  const rawContentType = clean(response.headers?.get?.('content-type'));
+  const mediaType = rawContentType.split(';', 1)[0].trim().toLowerCase();
+  if (mediaType !== 'application/json') {
+    throw new Error(`Solana RPC ${method} content type rejected`);
+  }
+
+  const contentLength = clean(response.headers?.get?.('content-length'));
+  if (contentLength) {
+    if (!/^\d+$/.test(contentLength) ||
+        BigInt(contentLength) > BigInt(MAX_RPC_RESPONSE_BYTES)) {
+      throw new Error(`Solana RPC ${method} response too large`);
+    }
+  }
+
+  let bodyText = '';
+  const body = response.body;
+  if (body && typeof body.getReader === 'function') {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let receivedBytes = 0;
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (!(chunk.value instanceof Uint8Array)) {
+        throw new Error(`Malformed Solana RPC ${method} response body`);
+      }
+      receivedBytes += chunk.value.byteLength;
+      if (receivedBytes > MAX_RPC_RESPONSE_BYTES) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The response is rejected even if cancelling the untrusted stream fails.
+        }
+        throw new Error(`Solana RPC ${method} response too large`);
+      }
+      bodyText += decoder.decode(chunk.value, { stream: true });
+    }
+    bodyText += decoder.decode();
+  } else if (typeof response.text === 'function') {
+    bodyText = await response.text();
+    if (new TextEncoder().encode(bodyText).byteLength > MAX_RPC_RESPONSE_BYTES) {
+      throw new Error(`Solana RPC ${method} response too large`);
+    }
+  } else {
+    throw new Error(`Malformed Solana RPC ${method} response body`);
+  }
+
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    throw new Error(`Malformed Solana RPC ${method} JSON`);
+  }
+}
 
 /**
  * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, timeoutMs?: unknown, fetchImpl?: ReadOnlyFetch}} options
@@ -105,8 +176,7 @@ export function createSolanaFinalizedTransactionReader(options) {
         redirect: 'error',
       });
       if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
-      if (typeof response.json !== 'function') throw new Error('Malformed Solana RPC response');
-      const payload = await response.json();
+      const payload = await readBoundedJson(response, method);
       if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
         throw new Error(`Solana RPC ${method} error`);
       }
