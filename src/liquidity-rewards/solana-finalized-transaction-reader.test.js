@@ -352,6 +352,9 @@ test('returns deeply immutable transaction evidence after independent verificati
   });
 
   const result = await reader.readFinalizedTransaction(SIGNATURE);
+  if (!('transaction' in result)) {
+    assert.fail('Expected verified transaction evidence');
+  }
   const transaction = /** @type {Record<string, unknown>} */ (result.transaction);
   const meta = /** @type {Record<string, unknown>} */ (result.meta);
   const signatures = /** @type {unknown[]} */ (transaction.signatures);
