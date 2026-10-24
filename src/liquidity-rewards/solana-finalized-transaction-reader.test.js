@@ -337,6 +337,45 @@ test('cross-checks exact finalized transaction and signature status evidence wit
   assert.deepEqual(reader.capabilities, { read: true, buildTransaction: false, signTransaction: false, sendTransaction: false });
 });
 
+test('returns deeply immutable transaction evidence after independent verification', async () => {
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async (_url, init) => {
+      const request = JSON.parse(init.body);
+      return rpcResponse(init, {
+        result: request.method === 'getTransaction'
+          ? finalizedTransaction()
+          : finalizedStatusResult(),
+      });
+    },
+  });
+
+  const result = await reader.readFinalizedTransaction(SIGNATURE);
+  const transaction = /** @type {Record<string, unknown>} */ (result.transaction);
+  const meta = /** @type {Record<string, unknown>} */ (result.meta);
+  const signatures = /** @type {unknown[]} */ (transaction.signatures);
+  const message = /** @type {Record<string, unknown>} */ (transaction.message);
+  const preTokenBalances = /** @type {unknown[]} */ (meta.preTokenBalances);
+
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(transaction), true);
+  assert.equal(Object.isFrozen(meta), true);
+  assert.equal(Object.isFrozen(signatures), true);
+  assert.equal(Object.isFrozen(message), true);
+  assert.equal(Object.isFrozen(preTokenBalances), true);
+  assert.throws(() => {
+    signatures[0] = OTHER_SIGNATURE;
+  }, TypeError);
+  assert.throws(() => {
+    message.injected = true;
+  }, TypeError);
+  assert.throws(() => {
+    preTokenBalances.push({ forged: true });
+  }, TypeError);
+  assert.equal(signatures[0], SIGNATURE);
+});
+
 test('requires each RPC provider to independently report the exact finalized signature slot', async () => {
   for (const invalidEndpoint of ['https://rpc.invalid', 'https://status-rpc.invalid']) {
     const reader = createSolanaFinalizedTransactionReader({
