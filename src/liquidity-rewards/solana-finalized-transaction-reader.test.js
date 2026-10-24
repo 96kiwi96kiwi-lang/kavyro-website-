@@ -34,7 +34,7 @@ const rawJsonResponse = (envelope) => {
   return {
     ok: true,
     headers: {
-      get: (name) => {
+      get: (/** @type {string} */ name) => {
         if (name.toLowerCase() === 'content-type') return 'application/json; charset=utf-8';
         if (name.toLowerCase() === 'content-length') return String(byteLength);
         return null;
@@ -177,12 +177,13 @@ test('rejects non-JSON and oversized declared RPC responses without reading thei
     { 'content-type': 'application/json', 'content-length': 'not-a-number' },
   ]) {
     let bodyRead = false;
+    const responseHeaders = /** @type {Record<string, string>} */ (headers);
     const reader = createSolanaFinalizedTransactionReader({
       rpcUrl: 'https://rpc.invalid',
       statusRpcUrl: 'https://status-rpc.invalid',
       fetchImpl: async () => ({
         ok: true,
-        headers: { get: (name) => headers[name.toLowerCase()] ?? null },
+        headers: { get: (name) => responseHeaders[name.toLowerCase()] ?? null },
         text: async () => {
           bodyRead = true;
           return '{}';
