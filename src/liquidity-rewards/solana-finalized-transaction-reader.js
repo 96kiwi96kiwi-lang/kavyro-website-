@@ -41,6 +41,29 @@ function canonicalJson(value) {
   throw new Error('Malformed Solana RPC JSON evidence');
 }
 
+/**
+ * Clone and recursively freeze already-validated RPC JSON so downstream proof
+ * evaluation cannot mutate evidence after the independent-provider comparison.
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function immutableEvidence(value) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' ||
+      (typeof value === 'number' && Number.isFinite(value))) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry) => immutableEvidence(entry)));
+  }
+  if (value && typeof value === 'object') {
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return Object.freeze(Object.fromEntries(
+      Object.entries(record).map(([key, entry]) => [key, immutableEvidence(entry)]),
+    ));
+  }
+  throw new Error('Malformed Solana RPC JSON evidence');
+}
+
 const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 /**
@@ -325,14 +348,20 @@ export function createSolanaFinalizedTransactionReader(options) {
         }
       }
 
+      const immutableTransaction = /** @type {Record<string, unknown>} */ (
+        immutableEvidence(r.transaction)
+      );
+      const immutableMeta = /** @type {Record<string, unknown>} */ (
+        immutableEvidence(r.meta)
+      );
       return Object.freeze({
         exists: true,
         finalized: true,
         signature: exactSignature,
         slot: r.slot,
         blockTimeSeconds: r.blockTime,
-        transaction: r.transaction,
-        meta: r.meta,
+        transaction: immutableTransaction,
+        meta: immutableMeta,
       });
     },
     capabilities: Object.freeze({ read: true, buildTransaction: false, signTransaction: false, sendTransaction: false }),
