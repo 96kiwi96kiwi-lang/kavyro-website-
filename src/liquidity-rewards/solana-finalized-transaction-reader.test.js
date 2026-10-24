@@ -27,13 +27,27 @@ const finalizedStatusResult = (status = finalizedSignatureStatus(), contextSlot 
   value: [status],
 });
 
+/** @param {unknown} envelope */
+const rawJsonResponse = (envelope) => {
+  const body = JSON.stringify(envelope);
+  const byteLength = new TextEncoder().encode(body).byteLength;
+  return {
+    ok: true,
+    headers: {
+      get: (name) => {
+        if (name.toLowerCase() === 'content-type') return 'application/json; charset=utf-8';
+        if (name.toLowerCase() === 'content-length') return String(byteLength);
+        return null;
+      },
+    },
+    text: async () => body,
+  };
+};
+
 /** @param {{body: string}} init @param {Record<string, unknown>} payload */
 const rpcResponse = (init, payload) => {
   const request = JSON.parse(init.body);
-  return {
-    ok: true,
-    json: async () => ({ jsonrpc: '2.0', id: request.id, ...payload }),
-  };
+  return rawJsonResponse({ jsonrpc: '2.0', id: request.id, ...payload });
 };
 
 test('requires a distinct status RPC hostname before reading evidence', () => {
@@ -126,6 +140,90 @@ test('aborts and fails closed when a read-only RPC call exceeds its timeout', as
 
   await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
   assert.equal(aborted, true);
+});
+
+
+test('keeps the RPC timeout active while streaming the response body', async () => {
+  let aborted = false;
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => ({
+      ok: true,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: () => new Promise((_resolve, reject) => {
+            init.signal.addEventListener('abort', () => {
+              aborted = true;
+              reject(new Error('aborted'));
+            }, { once: true });
+          }),
+          cancel: async () => {},
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  assert.equal(aborted, true);
+});
+
+test('rejects non-JSON and oversized declared RPC responses without reading their body', async () => {
+  for (const headers of [
+    { 'content-type': 'text/html', 'content-length': '2' },
+    { 'content-type': 'application/json', 'content-length': String(4 * 1024 * 1024 + 1) },
+    { 'content-type': 'application/json', 'content-length': 'not-a-number' },
+  ]) {
+    let bodyRead = false;
+    const reader = createSolanaFinalizedTransactionReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        headers: { get: (name) => headers[name.toLowerCase()] ?? null },
+        text: async () => {
+          bodyRead = true;
+          return '{}';
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /content type rejected|response too large/,
+    );
+    assert.equal(bodyRead, false);
+  }
+});
+
+test('cancels and rejects a chunked RPC response that exceeds the byte cap', async () => {
+  let cancelled = false;
+  let reads = 0;
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            reads += 1;
+            return { done: false, value: new Uint8Array(4 * 1024 * 1024 + 1) };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /response too large/);
+  assert.equal(reads, 1);
+  assert.equal(cancelled, true);
 });
 
 test('cross-checks exact finalized transaction and signature status evidence without transaction capability', async () => {
@@ -227,7 +325,7 @@ test('binds every RPC response to its JSON-RPC version and request id', async ()
   for (const envelope of invalidEnvelopes) {
     const reader = createSolanaFinalizedTransactionReader({
       rpcUrl: 'https://rpc.invalid', statusRpcUrl: 'https://status-rpc.invalid',
-      fetchImpl: async () => ({ ok: true, json: async () => envelope }),
+      fetchImpl: async () => rawJsonResponse(envelope),
     });
     await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /response mismatch/);
   }
