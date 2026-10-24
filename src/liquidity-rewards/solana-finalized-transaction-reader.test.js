@@ -29,18 +29,27 @@ const finalizedStatusResult = (status = finalizedSignatureStatus(), contextSlot 
 
 /** @param {unknown} envelope */
 const rawJsonResponse = (envelope) => {
-  const body = JSON.stringify(envelope);
-  const byteLength = new TextEncoder().encode(body).byteLength;
+  const encoded = new TextEncoder().encode(JSON.stringify(envelope));
+  let delivered = false;
   return {
     ok: true,
     headers: {
       get: (/** @type {string} */ name) => {
         if (name.toLowerCase() === 'content-type') return 'application/json; charset=utf-8';
-        if (name.toLowerCase() === 'content-length') return String(byteLength);
+        if (name.toLowerCase() === 'content-length') return String(encoded.byteLength);
         return null;
       },
     },
-    text: async () => body,
+    body: {
+      getReader: () => ({
+        read: async () => {
+          if (delivered) return { done: true };
+          delivered = true;
+          return { done: false, value: encoded };
+        },
+        cancel: async () => {},
+      }),
+    },
   };
 };
 
@@ -184,9 +193,14 @@ test('rejects non-JSON and oversized declared RPC responses without reading thei
       fetchImpl: async () => ({
         ok: true,
         headers: { get: (name) => responseHeaders[name.toLowerCase()] ?? null },
-        text: async () => {
-          bodyRead = true;
-          return '{}';
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {},
+          }),
         },
       }),
     });
@@ -224,6 +238,37 @@ test('cancels and rejects a chunked RPC response that exceeds the byte cap', asy
 
   await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /response too large/);
   assert.equal(reads, 1);
+  assert.equal(cancelled, true);
+});
+
+test('rejects and cancels non-canonical UTF-8 RPC evidence', async () => {
+  let cancelled = false;
+  let delivered = false;
+  const reader = createSolanaFinalizedTransactionReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (delivered) return { done: true };
+            delivered = true;
+            return {
+              done: false,
+              value: Uint8Array.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]),
+            };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /Malformed Solana RPC getTransaction UTF-8/);
   assert.equal(cancelled, true);
 });
 
