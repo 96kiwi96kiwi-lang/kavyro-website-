@@ -49,8 +49,7 @@ const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
  *   ok: boolean,
  *   status?: number,
  *   headers?: {get: (name: string) => string | null},
- *   body?: {getReader: () => ReadOnlyBodyReader} | null,
- *   text?: () => Promise<string>
+ *   body?: {getReader: () => ReadOnlyBodyReader} | null
  * }} ReadOnlyHttpResponse
  * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal, redirect: 'error'}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
  */
@@ -81,7 +80,7 @@ async function readBoundedJson(response, method) {
   const body = response.body;
   if (body && typeof body.getReader === 'function') {
     const reader = body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder('utf-8', { fatal: true });
     let receivedBytes = 0;
     while (true) {
       const chunk = await reader.read();
@@ -98,13 +97,21 @@ async function readBoundedJson(response, method) {
         }
         throw new Error(`Solana RPC ${method} response too large`);
       }
-      bodyText += decoder.decode(chunk.value, { stream: true });
+      try {
+        bodyText += decoder.decode(chunk.value, { stream: true });
+      } catch {
+        try {
+          await reader.cancel();
+        } catch {
+          // Invalid evidence remains rejected even if stream cancellation fails.
+        }
+        throw new Error(`Malformed Solana RPC ${method} UTF-8`);
+      }
     }
-    bodyText += decoder.decode();
-  } else if (typeof response.text === 'function') {
-    bodyText = await response.text();
-    if (new TextEncoder().encode(bodyText).byteLength > MAX_RPC_RESPONSE_BYTES) {
-      throw new Error(`Solana RPC ${method} response too large`);
+    try {
+      bodyText += decoder.decode();
+    } catch {
+      throw new Error(`Malformed Solana RPC ${method} UTF-8`);
     }
   } else {
     throw new Error(`Malformed Solana RPC ${method} response body`);
