@@ -10,7 +10,7 @@ const DEFAULT_OPERATOR_BINDING = Object.freeze({
   statusRpcOperator: 'operator-b',
 });
 
-/** @param {Record<string, unknown>} options */
+/** @param {Parameters<typeof createSolanaFinalizedTransactionReader>[0]} options */
 const createReader = (options) => createSolanaFinalizedTransactionReader({
   ...DEFAULT_OPERATOR_BINDING,
   ...options,
