@@ -60,7 +60,7 @@ const depositData='HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX';
 const depositAccounts=['W','AUTH','P','TA','KVRO_SOURCE','QUOTE_SOURCE','V0','V1',SPL_TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID,KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
 /** @param {number} accountIndex @param {string} mint @param {string} owner @param {string|number|bigint} amount */
 const bal=(accountIndex,mint,owner,amount)=>({accountIndex,mint,owner,uiTokenAmount:{amount:String(amount),decimals:0,uiAmount:null,uiAmountString:String(amount)}});
-const finalizedTx={exists:true,finalized:true,signature:'SIG',slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
+const finalizedTx={exists:true,finalized:true,signature:'SIG',providers:Object.freeze({transactionOperator:'primary-rpc',statusOperator:'status-rpc'}),slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
 
 test('positive composition binds verifier provenance, signature, wallet, pool, LP mint, LP position and historical KVRO amount',async()=>{
  let ownershipRequest;let transactionSignature;
@@ -80,9 +80,25 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
  assert.equal(result.contributedKvroBaseUnits,300n);
  assert.equal(result.contributionEvidenceId,'SIG:P:W');
  assert.equal(result.ownershipEvidenceId,'TA:100:101');
+ assert.deepEqual(result.rpcProviders,{transactionOperator:'primary-rpc',statusOperator:'status-rpc'});
  assert.equal(result.payoutAuthorized,false);
 });
 
+
+test('fails closed when independent RPC operator provenance is missing or not independent',async()=>{
+ for(const providers of [
+  undefined,
+  {transactionOperator:'same-rpc',statusOperator:'same-rpc'},
+  {transactionOperator:'Primary RPC',statusOperator:'status-rpc'},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
+   transactionReader:{readFinalizedTransaction:async()=>({...finalizedTx,providers})},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(()=>composition.verify(request),/RPC_PROVENANCE_REQUIRED/);
+ }
+});
 
 test('fails closed when finalized evidence signature differs from the requested signature',async()=>{
  const composition=createVerifiedContributionComposition({

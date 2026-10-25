@@ -28,6 +28,21 @@ export function verifyCpmmContributionReceipt(input) {
   const kvroMint = text(r.kvroMint);
   const quoteMint = text(r.quoteMint);
   const kvroSourceOwner = text(r.kvroSourceOwner);
+  const rpcProviders = r.rpcProviders;
+  if (!rpcProviders || typeof rpcProviders !== 'object') {
+    throw new Error('CONTRIBUTION_RECEIPT_RPC_PROVENANCE_REQUIRED');
+  }
+  const providerRecord = /** @type {Record<string, unknown>} */ (rpcProviders);
+  const transactionOperator = text(providerRecord.transactionOperator);
+  const statusOperator = text(providerRecord.statusOperator);
+  const canonicalOperator = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/;
+  if (providerRecord.transactionOperator !== transactionOperator ||
+      providerRecord.statusOperator !== statusOperator ||
+      !canonicalOperator.test(transactionOperator) ||
+      !canonicalOperator.test(statusOperator) ||
+      transactionOperator === statusOperator) {
+    throw new Error('CONTRIBUTION_RECEIPT_INDEPENDENT_RPC_PROVENANCE_REQUIRED');
+  }
   if (!signature || !wallet || !poolId || !lpMint) throw new Error('CONTRIBUTION_RECEIPT_IDENTITY_REQUIRED');
   if (poolType !== 'RAYDIUM_CPMM') throw new Error('CONTRIBUTION_RECEIPT_UNSUPPORTED_POOL_TYPE');
   if (kvroMint !== KAVYRO_MINT || quoteMint !== WRAPPED_SOL_MINT) throw new Error('CONTRIBUTION_RECEIPT_MINT_MISMATCH');
@@ -69,6 +84,7 @@ export function verifyCpmmContributionReceipt(input) {
     contextSlot: slot,
     observedAtSeconds: blockTimeSeconds,
     contributionEvidenceId: `${signature}:${poolId}:${wallet}`,
+    rpcProviders: Object.freeze({ transactionOperator, statusOperator }),
     contributionAmountVerified: true,
     payoutAuthorized: false,
   });
