@@ -148,7 +148,7 @@ async function readBoundedJson(response, method) {
 }
 
 /**
- * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, timeoutMs?: unknown, fetchImpl?: ReadOnlyFetch}} options
+ * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, rpcOperator?: unknown, statusRpcOperator?: unknown, timeoutMs?: unknown, fetchImpl?: ReadOnlyFetch}} options
  */
 export function createSolanaFinalizedTransactionReader(options) {
   const transactionEndpoint = clean(options?.rpcUrl);
@@ -172,6 +172,22 @@ export function createSolanaFinalizedTransactionReader(options) {
   }
   if (transactionUrl.hostname === statusUrl.hostname) {
     throw new TypeError('statusRpcUrl must use an independent hostname');
+  }
+  const transactionOperator = clean(options?.rpcOperator);
+  const statusOperator = clean(options?.statusRpcOperator);
+  const canonicalOperator = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/;
+  if (typeof options?.rpcOperator !== 'string' ||
+      options.rpcOperator !== transactionOperator ||
+      !canonicalOperator.test(transactionOperator)) {
+    throw new TypeError('rpcOperator must be a canonical lowercase operator id');
+  }
+  if (typeof options?.statusRpcOperator !== 'string' ||
+      options.statusRpcOperator !== statusOperator ||
+      !canonicalOperator.test(statusOperator)) {
+    throw new TypeError('statusRpcOperator must be a canonical lowercase operator id');
+  }
+  if (transactionOperator === statusOperator) {
+    throw new TypeError('statusRpcOperator must identify an independent operator');
   }
   const configuredFetch = options.fetchImpl ?? (typeof globalThis.fetch === 'function' ? /** @type {ReadOnlyFetch} */ (globalThis.fetch) : undefined);
   if (typeof configuredFetch !== 'function') throw new TypeError('fetchImpl must be a function');
@@ -275,7 +291,14 @@ export function createSolanaFinalizedTransactionReader(options) {
               throw new Error(`${source} Solana transaction absence status mismatch`);
             }
           }
-          return Object.freeze({ exists: false, signature: exactSignature });
+          return Object.freeze({
+            exists: false,
+            signature: exactSignature,
+            providers: Object.freeze({
+              transactionOperator,
+              statusOperator,
+            }),
+          });
         }
         throw new Error('Independent Solana transaction absence evidence mismatch');
       }
@@ -358,6 +381,10 @@ export function createSolanaFinalizedTransactionReader(options) {
         exists: true,
         finalized: true,
         signature: exactSignature,
+        providers: Object.freeze({
+          transactionOperator,
+          statusOperator,
+        }),
         slot: r.slot,
         blockTimeSeconds: r.blockTime,
         transaction: immutableTransaction,
