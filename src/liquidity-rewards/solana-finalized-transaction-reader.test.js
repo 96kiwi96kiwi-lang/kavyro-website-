@@ -205,6 +205,23 @@ test('aborts and fails closed when a read-only RPC call exceeds its timeout', as
 });
 
 
+test('enforces the RPC deadline when transport ignores the abort signal', async () => {
+  let aborted = false;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => new Promise(() => {
+      init.signal.addEventListener('abort', () => {
+        aborted = true;
+      }, { once: true });
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  assert.equal(aborted, true);
+});
+
 test('keeps the RPC timeout active while streaming the response body', async () => {
   let aborted = false;
   const reader = createReader({
