@@ -250,6 +250,37 @@ test('keeps the RPC timeout active while streaming the response body', async () 
   assert.equal(aborted, true);
 });
 
+test('cancels a stalled RPC response stream when its deadline expires', async () => {
+  let aborted = false;
+  let cancelled = false;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: () => new Promise(() => {
+            init.signal.addEventListener('abort', () => {
+              aborted = true;
+            }, { once: true });
+          }),
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  assert.equal(aborted, true);
+  assert.equal(cancelled, true);
+});
+
 test('rejects non-200 RPC responses even when fetch marks them successful', async () => {
   for (const status of [201, 206]) {
     const reader = createReader({
