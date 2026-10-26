@@ -70,7 +70,7 @@ const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
  * @typedef {{read: () => Promise<{done: boolean, value?: Uint8Array}>, cancel: () => Promise<void>}} ReadOnlyBodyReader
  * @typedef {{
  *   ok: boolean,
- *   status?: number,
+ *   status: number,
  *   headers?: {get: (name: string) => string | null},
  *   body?: {getReader: () => ReadOnlyBodyReader} | null
  * }} ReadOnlyHttpResponse
@@ -221,7 +221,9 @@ export function createSolanaFinalizedTransactionReader(options) {
         // a transport boundary. Evidence reads must stay bound to the exact URL.
         redirect: 'error',
       });
-      if (!response || response.ok !== true) throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+      if (!response || response.ok !== true || response.status !== 200) {
+        throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+      }
       const payload = await readBoundedJson(response, method);
       if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
         throw new Error(`Solana RPC ${method} error`);
