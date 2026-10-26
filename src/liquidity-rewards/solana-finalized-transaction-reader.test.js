@@ -38,12 +38,13 @@ const finalizedStatusResult = (status = finalizedSignatureStatus(), contextSlot 
   value: [status],
 });
 
-/** @param {unknown} envelope */
-const rawJsonResponse = (envelope) => {
+/** @param {unknown} envelope @param {number} [status] */
+const rawJsonResponse = (envelope, status = 200) => {
   const encoded = new TextEncoder().encode(JSON.stringify(envelope));
   let delivered = false;
   return {
     ok: true,
+    status,
     headers: {
       get: (/** @type {string} */ name) => {
         if (name.toLowerCase() === 'content-type') return 'application/json; charset=utf-8';
@@ -212,6 +213,7 @@ test('keeps the RPC timeout active while streaming the response body', async () 
     timeoutMs: 5,
     fetchImpl: async (_url, init) => ({
       ok: true,
+      status: 200,
       headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
       body: {
         getReader: () => ({
@@ -231,6 +233,28 @@ test('keeps the RPC timeout active while streaming the response body', async () 
   assert.equal(aborted, true);
 });
 
+test('rejects non-200 RPC responses even when fetch marks them successful', async () => {
+  for (const status of [201, 206]) {
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async (_url, init) => {
+        const request = JSON.parse(init.body);
+        return rawJsonResponse({
+          jsonrpc: '2.0',
+          id: request.id,
+          result: finalizedTransaction(),
+        }, status);
+      },
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      new RegExp(`Solana RPC HTTP ${status}`),
+    );
+  }
+});
+
 test('rejects non-JSON and oversized declared RPC responses without reading their body', async () => {
   for (const headers of [
     { 'content-type': 'text/html', 'content-length': '2' },
@@ -244,6 +268,7 @@ test('rejects non-JSON and oversized declared RPC responses without reading thei
       statusRpcUrl: 'https://status-rpc.invalid',
       fetchImpl: async () => ({
         ok: true,
+        status: 200,
         headers: { get: (name) => responseHeaders[name.toLowerCase()] ?? null },
         body: {
           getReader: () => ({
@@ -273,6 +298,7 @@ test('cancels and rejects a chunked RPC response that exceeds the byte cap', asy
     statusRpcUrl: 'https://status-rpc.invalid',
     fetchImpl: async () => ({
       ok: true,
+      status: 200,
       headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
       body: {
         getReader: () => ({
@@ -301,6 +327,7 @@ test('rejects and cancels non-canonical UTF-8 RPC evidence', async () => {
     statusRpcUrl: 'https://status-rpc.invalid',
     fetchImpl: async () => ({
       ok: true,
+      status: 200,
       headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
       body: {
         getReader: () => ({
