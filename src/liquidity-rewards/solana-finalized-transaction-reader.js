@@ -210,21 +210,31 @@ export function createSolanaFinalizedTransactionReader(options) {
   async function callRpc(endpoint, method, params) {
     const id = ++requestId;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
+    const deadline = /** @type {Promise<never>} */ (new Promise((_resolve, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error(`Solana RPC ${method} timeout`));
+      }, timeoutMs);
+    }));
     try {
-      const response = await fetchImpl(endpoint, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-        signal: controller.signal,
-        // A redirect could collapse the configured endpoint separation or cross
-        // a transport boundary. Evidence reads must stay bound to the exact URL.
-        redirect: 'error',
-      });
+      const response = await Promise.race([
+        fetchImpl(endpoint, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+          signal: controller.signal,
+          // A redirect could collapse the configured endpoint separation or cross
+          // a transport boundary. Evidence reads must stay bound to the exact URL.
+          redirect: 'error',
+        }),
+        deadline,
+      ]);
       if (!response || response.ok !== true || response.status !== 200) {
         throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
       }
-      const payload = await readBoundedJson(response, method);
+      const payload = await Promise.race([readBoundedJson(response, method), deadline]);
       if (!payload || typeof payload !== 'object' || ('error' in payload && payload.error) || !('result' in payload)) {
         throw new Error(`Solana RPC ${method} error`);
       }
@@ -237,7 +247,7 @@ export function createSolanaFinalizedTransactionReader(options) {
       if (controller.signal.aborted) throw new Error(`Solana RPC ${method} timeout`);
       throw error;
     } finally {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     }
   }
 
