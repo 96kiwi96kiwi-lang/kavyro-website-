@@ -157,6 +157,22 @@ async function readBoundedJson(response, method, signal) {
 }
 
 /**
+ * Cancel a response that arrives after its request deadline. A transport may
+ * ignore AbortSignal and still resolve later; its body must not remain active.
+ * @param {ReadOnlyHttpResponse} response
+ */
+function cancelLateResponseBody(response) {
+  const body = response?.body;
+  if (!body || typeof body.getReader !== 'function') return;
+  try {
+    const reader = body.getReader();
+    void reader.cancel().catch(() => {});
+  } catch {
+    // The timed-out request remains rejected even if cleanup is unavailable.
+  }
+}
+
+/**
  * @param {{rpcUrl?: unknown, statusRpcUrl?: unknown, rpcOperator?: unknown, statusRpcOperator?: unknown, timeoutMs?: unknown, fetchImpl?: ReadOnlyFetch}} options
  */
 export function createSolanaFinalizedTransactionReader(options) {
@@ -228,18 +244,21 @@ export function createSolanaFinalizedTransactionReader(options) {
       }, timeoutMs);
     }));
     try {
-      const response = await Promise.race([
-        fetchImpl(endpoint, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-          signal: controller.signal,
-          // A redirect could collapse the configured endpoint separation or cross
-          // a transport boundary. Evidence reads must stay bound to the exact URL.
-          redirect: 'error',
-        }),
-        deadline,
-      ]);
+      const fetchPromise = fetchImpl(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        signal: controller.signal,
+        // A redirect could collapse the configured endpoint separation or cross
+        // a transport boundary. Evidence reads must stay bound to the exact URL.
+        redirect: 'error',
+      });
+      void fetchPromise.then((lateResponse) => {
+        if (controller.signal.aborted) cancelLateResponseBody(lateResponse);
+      }, () => {
+        // The request failure is handled by the deadline race below.
+      });
+      const response = await Promise.race([fetchPromise, deadline]);
       if (!response || response.ok !== true || response.status !== 200) {
         throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
       }
