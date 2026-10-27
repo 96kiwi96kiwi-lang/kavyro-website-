@@ -376,6 +376,45 @@ test('rejects non-JSON and oversized declared RPC responses without reading thei
   }
 });
 
+test('cancels RPC bodies rejected before any body consumption', async () => {
+  for (const headers of [
+    { 'content-type': 'text/html', 'content-length': '2' },
+    { 'content-type': 'application/json', 'content-length': String(4 * 1024 * 1024 + 1) },
+    { 'content-type': 'application/json', 'content-length': 'not-a-number' },
+  ]) {
+    let bodyRead = false;
+    let cancelled = false;
+    const responseHeaders = /** @type {Record<string, string>} */ (headers);
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => responseHeaders[name.toLowerCase()] ?? null },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {
+              cancelled = true;
+            },
+          }),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /content type rejected|response too large/,
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(cancelled, true);
+  }
+});
+
 test('cancels and rejects a chunked RPC response that exceeds the byte cap', async () => {
   let cancelled = false;
   let reads = 0;
