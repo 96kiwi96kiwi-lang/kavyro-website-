@@ -222,6 +222,44 @@ test('enforces the RPC deadline when transport ignores the abort signal', async 
   assert.equal(aborted, true);
 });
 
+test('cancels a response body when an abort-ignoring transport resolves after deadline', async () => {
+  let aborted = false;
+  let bodyRead = false;
+  let cancelled = false;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => new Promise((resolve) => {
+      init.signal.addEventListener('abort', () => {
+        aborted = true;
+      }, { once: true });
+      setTimeout(() => resolve({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {
+              cancelled = true;
+            },
+          }),
+        },
+      }), 20);
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(aborted, true);
+  assert.equal(bodyRead, false);
+  assert.equal(cancelled, true);
+});
+
 test('keeps the RPC timeout active while streaming the response body', async () => {
   let aborted = false;
   const reader = createReader({
