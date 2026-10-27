@@ -89,6 +89,7 @@ async function readBoundedJson(response, method, signal) {
   const rawContentType = clean(response.headers?.get?.('content-type'));
   const mediaType = rawContentType.split(';', 1)[0].trim().toLowerCase();
   if (mediaType !== 'application/json') {
+    cancelResponseBody(response);
     throw new Error(`Solana RPC ${method} content type rejected`);
   }
 
@@ -96,6 +97,7 @@ async function readBoundedJson(response, method, signal) {
   if (contentLength) {
     if (!/^\d+$/.test(contentLength) ||
         BigInt(contentLength) > BigInt(MAX_RPC_RESPONSE_BYTES)) {
+      cancelResponseBody(response);
       throw new Error(`Solana RPC ${method} response too large`);
     }
   }
@@ -161,7 +163,7 @@ async function readBoundedJson(response, method, signal) {
  * ignore AbortSignal and still resolve later; its body must not remain active.
  * @param {ReadOnlyHttpResponse} response
  */
-function cancelLateResponseBody(response) {
+function cancelResponseBody(response) {
   const body = response?.body;
   if (!body || typeof body.getReader !== 'function') return;
   try {
@@ -254,7 +256,7 @@ export function createSolanaFinalizedTransactionReader(options) {
         redirect: 'error',
       });
       void fetchPromise.then((lateResponse) => {
-        if (controller.signal.aborted) cancelLateResponseBody(lateResponse);
+        if (controller.signal.aborted) cancelResponseBody(lateResponse);
       }, () => {
         // The request failure is handled by the deadline race below.
       });
