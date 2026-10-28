@@ -86,14 +86,14 @@ const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
  * @returns {Promise<unknown>}
  */
 async function readBoundedJson(response, method, signal) {
-  const rawContentType = clean(response.headers?.get?.('content-type'));
+  const rawContentType = readResponseHeader(response, 'content-type', method);
   const mediaType = rawContentType.split(';', 1)[0].trim().toLowerCase();
   if (mediaType !== 'application/json') {
     cancelResponseBody(response);
     throw new Error(`Solana RPC ${method} content type rejected`);
   }
 
-  const contentLength = clean(response.headers?.get?.('content-length'));
+  const contentLength = readResponseHeader(response, 'content-length', method);
   if (contentLength) {
     if (!/^\d+$/.test(contentLength) ||
         BigInt(contentLength) > BigInt(MAX_RPC_RESPONSE_BYTES)) {
@@ -169,6 +169,23 @@ async function readBoundedJson(response, method, signal) {
     return JSON.parse(bodyText);
   } catch {
     throw new Error(`Malformed Solana RPC ${method} JSON`);
+  }
+}
+
+/**
+ * Treat response metadata as untrusted transport input. A throwing Headers
+ * implementation must fail closed without leaving its body stream active.
+ * @param {ReadOnlyHttpResponse} response
+ * @param {string} name
+ * @param {string} method
+ * @returns {string}
+ */
+function readResponseHeader(response, name, method) {
+  try {
+    return clean(response.headers?.get?.(name));
+  } catch {
+    cancelResponseBody(response);
+    throw new Error(`Malformed Solana RPC ${method} response headers`);
   }
 }
 
@@ -454,3 +471,4 @@ export function createSolanaFinalizedTransactionReader(options) {
     capabilities: Object.freeze({ read: true, buildTransaction: false, signTransaction: false, sendTransaction: false }),
   });
 }
+
