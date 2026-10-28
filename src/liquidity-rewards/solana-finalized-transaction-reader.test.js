@@ -454,6 +454,38 @@ test('cancels RPC bodies rejected before any body consumption', async () => {
   }
 });
 
+test('cancels and rejects malformed RPC response chunks', async () => {
+  let cancelled = false;
+  let reads = 0;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            reads += 1;
+            return { done: false };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => reader.readFinalizedTransaction(SIGNATURE),
+    /Malformed Solana RPC getTransaction response body/,
+  );
+  assert.equal(reads, 1);
+  assert.equal(cancelled, true);
+});
+
 test('cancels and rejects a chunked RPC response that exceeds the byte cap', async () => {
   let cancelled = false;
   let reads = 0;
