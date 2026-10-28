@@ -342,7 +342,12 @@ test('rejects non-200 RPC responses even when fetch marks them successful', asyn
 });
 
 test('cancels non-200 RPC response bodies without consuming them', async () => {
-  for (const [status, ok] of [[201, true], [206, true], [503, false]]) {
+  const cases = /** @type {Array<{status: number, ok: boolean}>} */ ([
+    { status: 201, ok: true },
+    { status: 206, ok: true },
+    { status: 503, ok: false },
+  ]);
+  for (const { status, ok } of cases) {
     let bodyRead = false;
     let cancelled = false;
     const reader = createReader({
