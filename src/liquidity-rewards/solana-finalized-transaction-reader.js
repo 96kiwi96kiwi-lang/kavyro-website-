@@ -262,6 +262,7 @@ export function createSolanaFinalizedTransactionReader(options) {
       });
       const response = await Promise.race([fetchPromise, deadline]);
       if (!response || response.ok !== true || response.status !== 200) {
+        if (response) cancelResponseBody(response);
         throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
       }
       const payload = await Promise.race([
