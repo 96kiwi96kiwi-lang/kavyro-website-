@@ -114,7 +114,16 @@ async function readBoundedJson(response, method, signal) {
       const decoder = new TextDecoder('utf-8', { fatal: true });
       let receivedBytes = 0;
       while (true) {
-        const chunk = await reader.read();
+        const chunk = await reader.read().catch(async () => {
+          if (!signal.aborted) {
+            try {
+              await reader.cancel();
+            } catch {
+              // The read failure remains fail-closed even if stream cleanup fails.
+            }
+          }
+          throw new Error(`Malformed Solana RPC ${method} response body`);
+        });
         if (chunk.done) break;
         if (!(chunk.value instanceof Uint8Array)) {
           try {
