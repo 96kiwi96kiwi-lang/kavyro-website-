@@ -493,6 +493,42 @@ test('cancels and normalizes failed RPC response header reads', async () => {
   assert.equal(cancelled, true);
 });
 
+test('rejects an adversarially long numeric content length without bigint parsing', async () => {
+  let bodyRead = false;
+  let cancelled = false;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name) => name.toLowerCase() === 'content-type'
+          ? 'application/json'
+          : '9'.repeat(100_000),
+      },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            bodyRead = true;
+            return { done: true };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => reader.readFinalizedTransaction(SIGNATURE),
+    /Solana RPC getTransaction response too large/,
+  );
+  assert.equal(bodyRead, false);
+  assert.equal(cancelled, true);
+});
+
 test('cancels and normalizes failed RPC response reads', async () => {
   let cancelled = false;
   let reads = 0;
