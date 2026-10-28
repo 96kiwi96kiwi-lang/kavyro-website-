@@ -65,6 +65,7 @@ function immutableEvidence(value) {
 }
 
 const MAX_RPC_RESPONSE_BYTES = 4 * 1024 * 1024;
+const MAX_RPC_RESPONSE_BYTES_TEXT = String(MAX_RPC_RESPONSE_BYTES);
 
 /**
  * @typedef {{read: () => Promise<{done: boolean, value?: Uint8Array}>, cancel: () => Promise<void>}} ReadOnlyBodyReader
@@ -95,8 +96,11 @@ async function readBoundedJson(response, method, signal) {
 
   const contentLength = readResponseHeader(response, 'content-length', method);
   if (contentLength) {
+    const canonicalLength = contentLength.replace(/^0+/, '') || '0';
     if (!/^\d+$/.test(contentLength) ||
-        BigInt(contentLength) > BigInt(MAX_RPC_RESPONSE_BYTES)) {
+        canonicalLength.length > MAX_RPC_RESPONSE_BYTES_TEXT.length ||
+        (canonicalLength.length === MAX_RPC_RESPONSE_BYTES_TEXT.length &&
+          canonicalLength > MAX_RPC_RESPONSE_BYTES_TEXT)) {
       cancelResponseBody(response);
       throw new Error(`Solana RPC ${method} response too large`);
     }
