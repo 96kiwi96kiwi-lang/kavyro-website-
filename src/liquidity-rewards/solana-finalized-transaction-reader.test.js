@@ -319,6 +319,38 @@ test('cancels a stalled RPC response stream when its deadline expires', async ()
   assert.equal(cancelled, true);
 });
 
+test('contains a synchronous reader cancellation failure during timeout cleanup', async () => {
+  let aborted = false;
+  let cancellationAttempts = 0;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => ({
+          read: () => new Promise(() => {
+            init.signal.addEventListener('abort', () => {
+              aborted = true;
+            }, { once: true });
+          }),
+          cancel: () => {
+            cancellationAttempts += 1;
+            throw new Error('untrusted synchronous cancel failure');
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  assert.equal(aborted, true);
+  assert.equal(cancellationAttempts, 1);
+});
+
 test('rejects non-200 RPC responses even when fetch marks them successful', async () => {
   for (const status of [201, 206]) {
     const reader = createReader({
