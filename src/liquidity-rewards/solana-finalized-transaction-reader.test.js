@@ -341,6 +341,40 @@ test('rejects non-200 RPC responses even when fetch marks them successful', asyn
   }
 });
 
+test('cancels non-200 RPC response bodies without consuming them', async () => {
+  for (const [status, ok] of [[201, true], [206, true], [503, false]]) {
+    let bodyRead = false;
+    let cancelled = false;
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok,
+        status,
+        headers: { get: () => null },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {
+              cancelled = true;
+            },
+          }),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      new RegExp(`Solana RPC HTTP ${status}`),
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(cancelled, true);
+  }
+});
+
 test('rejects non-JSON and oversized declared RPC responses without reading their body', async () => {
   for (const headers of [
     { 'content-type': 'text/html', 'content-length': '2' },
