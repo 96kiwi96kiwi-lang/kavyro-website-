@@ -454,6 +454,45 @@ test('cancels RPC bodies rejected before any body consumption', async () => {
   }
 });
 
+test('cancels and normalizes failed RPC response header reads', async () => {
+  let bodyRead = false;
+  let cancelled = false;
+  let headerReads = 0;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () => {
+          headerReads += 1;
+          throw new Error('untrusted header failure');
+        },
+      },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            bodyRead = true;
+            return { done: true };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => reader.readFinalizedTransaction(SIGNATURE),
+    /Malformed Solana RPC getTransaction response headers/,
+  );
+  assert.equal(headerReads, 1);
+  assert.equal(bodyRead, false);
+  assert.equal(cancelled, true);
+});
+
 test('cancels and normalizes failed RPC response reads', async () => {
   let cancelled = false;
   let reads = 0;
@@ -917,3 +956,4 @@ test('fails closed on malformed or errored signature status RPC evidence', async
     await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getSignatureStatuses|finalized signature status/);
   }
 });
+
