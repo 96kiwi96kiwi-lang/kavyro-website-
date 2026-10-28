@@ -111,7 +111,7 @@ async function readBoundedJson(response, method, signal) {
   if (body && typeof body.getReader === 'function') {
     const reader = body.getReader();
     const cancelOnAbort = () => {
-      void reader.cancel().catch(() => {});
+      cancelBodyReader(reader);
     };
     signal.addEventListener('abort', cancelOnAbort, { once: true });
     try {
@@ -177,6 +177,19 @@ async function readBoundedJson(response, method, signal) {
 }
 
 /**
+ * Best-effort cleanup for an untrusted reader implementation. Contain both a
+ * synchronous throw and an asynchronously rejected cancellation promise.
+ * @param {ReadOnlyBodyReader} reader
+ */
+function cancelBodyReader(reader) {
+  try {
+    void Promise.resolve(reader.cancel()).catch(() => {});
+  } catch {
+    // Cleanup failure must not escape the fail-closed request boundary.
+  }
+}
+
+/**
  * Treat response metadata as untrusted transport input. A throwing Headers
  * implementation must fail closed without leaving its body stream active.
  * @param {ReadOnlyHttpResponse} response
@@ -203,7 +216,7 @@ function cancelResponseBody(response) {
   if (!body || typeof body.getReader !== 'function') return;
   try {
     const reader = body.getReader();
-    void reader.cancel().catch(() => {});
+    cancelBodyReader(reader);
   } catch {
     // The timed-out request remains rejected even if cleanup is unavailable.
   }
