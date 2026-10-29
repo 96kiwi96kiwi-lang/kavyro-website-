@@ -74,6 +74,7 @@ export function createVerifiedContributionComposition(deps) {
       // boundary performs the single canonical receipt validation before composing it.
       const receipt = {
         ...delta,
+        rpcProviders: tx.providers,
         observedAtSeconds,
         maxAgeSeconds: deps.maxReceiptAgeSeconds,
       };
