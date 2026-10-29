@@ -437,6 +437,49 @@ test('cancels non-200 RPC response bodies without consuming them', async () => {
   }
 });
 
+test('cancels and normalizes throwing RPC HTTP metadata accessors', async () => {
+  for (const property of ['ok', 'status']) {
+    let metadataReads = 0;
+    let bodyRead = false;
+    let cancelled = false;
+    const response = {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            bodyRead = true;
+            return { done: true };
+          },
+          cancel: async () => {
+            cancelled = true;
+          },
+        }),
+      },
+    };
+    Object.defineProperty(response, property, {
+      get: () => {
+        metadataReads += 1;
+        throw new Error('untrusted HTTP metadata failure');
+      },
+    });
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => response,
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC HTTP response/,
+    );
+    assert.equal(metadataReads, 1);
+    assert.equal(bodyRead, false);
+    assert.equal(cancelled, true);
+  }
+});
+
 test('rejects non-JSON and oversized declared RPC responses without reading their body', async () => {
   for (const headers of [
     { 'content-type': 'text/html', 'content-length': '2' },
