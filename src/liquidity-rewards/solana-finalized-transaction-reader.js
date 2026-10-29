@@ -223,14 +223,35 @@ function readResponseHeader(response, name, method) {
 }
 
 /**
+ * Read the HTTP success metadata without exposing transport implementation
+ * errors. Both accessors are untrusted at this boundary, just like headers and
+ * the body reader, so a throwing getter must cancel the body and fail closed.
+ * @param {ReadOnlyHttpResponse} response
+ * @returns {{ok: boolean, status: number}}
+ */
+function readHttpResponseMetadata(response) {
+  try {
+    const ok = response.ok;
+    const status = response.status;
+    if (typeof ok !== 'boolean' || !Number.isSafeInteger(status)) {
+      throw new Error('invalid HTTP metadata');
+    }
+    return { ok, status };
+  } catch {
+    cancelResponseBody(response);
+    throw new Error('Malformed Solana RPC HTTP response');
+  }
+}
+
+/**
  * Cancel a response that arrives after its request deadline. A transport may
  * ignore AbortSignal and still resolve later; its body must not remain active.
  * @param {ReadOnlyHttpResponse} response
  */
 function cancelResponseBody(response) {
-  const body = response?.body;
-  if (!body || typeof body.getReader !== 'function') return;
   try {
+    const body = response?.body;
+    if (!body || typeof body.getReader !== 'function') return;
     const reader = body.getReader();
     cancelBodyReader(reader);
   } catch {
@@ -325,9 +346,11 @@ export function createSolanaFinalizedTransactionReader(options) {
         // The request failure is handled by the deadline race below.
       });
       const response = await Promise.race([fetchPromise, deadline]);
-      if (!response || response.ok !== true || response.status !== 200) {
-        if (response) cancelResponseBody(response);
-        throw new Error(`Solana RPC HTTP ${response?.status ?? 'error'}`);
+      if (!response) throw new Error('Solana RPC HTTP error');
+      const { ok, status } = readHttpResponseMetadata(response);
+      if (ok !== true || status !== 200) {
+        cancelResponseBody(response);
+        throw new Error(`Solana RPC HTTP ${status}`);
       }
       const payload = await Promise.race([
         readBoundedJson(response, method, controller.signal),
