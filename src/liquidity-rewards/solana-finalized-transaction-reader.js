@@ -107,9 +107,7 @@ async function readBoundedJson(response, method, signal) {
   }
 
   let bodyText = '';
-  const body = response.body;
-  if (body && typeof body.getReader === 'function') {
-    const reader = body.getReader();
+  const reader = acquireResponseReader(response, method);
     const cancelOnAbort = () => {
       cancelBodyReader(reader);
     };
@@ -165,14 +163,32 @@ async function readBoundedJson(response, method, signal) {
     } finally {
       signal.removeEventListener('abort', cancelOnAbort);
     }
-  } else {
-    throw new Error(`Malformed Solana RPC ${method} response body`);
-  }
 
   try {
     return JSON.parse(bodyText);
   } catch {
     throw new Error(`Malformed Solana RPC ${method} JSON`);
+  }
+}
+
+/**
+ * Acquire and validate an untrusted response reader without exposing transport
+ * implementation errors to the proof boundary.
+ * @param {ReadOnlyHttpResponse} response
+ * @param {string} method
+ * @returns {ReadOnlyBodyReader}
+ */
+function acquireResponseReader(response, method) {
+  try {
+    const body = response.body;
+    if (!body || typeof body.getReader !== 'function') throw new Error('missing body');
+    const reader = body.getReader();
+    if (!reader || typeof reader.read !== 'function' || typeof reader.cancel !== 'function') {
+      throw new Error('malformed reader');
+    }
+    return reader;
+  } catch {
+    throw new Error(`Malformed Solana RPC ${method} response body`);
   }
 }
 
