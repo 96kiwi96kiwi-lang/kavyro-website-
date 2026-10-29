@@ -351,6 +351,31 @@ test('contains a synchronous reader cancellation failure during timeout cleanup'
   assert.equal(cancellationAttempts, 1);
 });
 
+test('normalizes a synchronous RPC body reader acquisition failure', async () => {
+  let acquisitions = 0;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+      body: {
+        getReader: () => {
+          acquisitions += 1;
+          throw new Error('untrusted body implementation failure');
+        },
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => reader.readFinalizedTransaction(SIGNATURE),
+    /Malformed Solana RPC getTransaction response body/,
+  );
+  assert.equal(acquisitions, 1);
+});
+
 test('rejects non-200 RPC responses even when fetch marks them successful', async () => {
   for (const status of [201, 206]) {
     const reader = createReader({
