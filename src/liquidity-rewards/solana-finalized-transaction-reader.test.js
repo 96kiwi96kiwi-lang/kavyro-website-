@@ -376,6 +376,45 @@ test('normalizes a synchronous RPC body reader acquisition failure', async () =>
   assert.equal(acquisitions, 1);
 });
 
+test('cancels malformed RPC readers before rejecting their evidence', async () => {
+  for (const readMode of ['missing', 'throwing']) {
+    let cancellations = 0;
+    const malformedReader = {
+      cancel: async () => {
+        cancellations += 1;
+      },
+      ...(readMode === 'missing' ? { read: null } : {}),
+    };
+    if (readMode === 'throwing') {
+      Object.defineProperty(malformedReader, 'read', {
+        get: () => {
+          throw new Error('untrusted reader method getter');
+        },
+      });
+    }
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: {
+          getReader: () => /** @type {{read: () => Promise<{done: boolean, value?: Uint8Array}>, cancel: () => Promise<void>}} */ (
+            /** @type {unknown} */ (malformedReader)
+          ),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC getTransaction response body/,
+    );
+    assert.equal(cancellations, 1);
+  }
+});
+
 test('rejects non-200 RPC responses even when fetch marks them successful', async () => {
   for (const status of [201, 206]) {
     const reader = createReader({
