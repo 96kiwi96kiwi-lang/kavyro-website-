@@ -210,7 +210,18 @@ function acquireResponseReader(response, method) {
     const body = response.body;
     if (!body || typeof body.getReader !== 'function') throw new Error('missing body');
     const reader = body.getReader();
-    if (!reader || typeof reader.read !== 'function' || typeof reader.cancel !== 'function') {
+    if (!reader || typeof reader.cancel !== 'function') {
+      throw new Error('malformed reader');
+    }
+    let read;
+    try {
+      read = reader.read;
+    } catch {
+      cancelBodyReader(reader);
+      throw new Error('malformed reader');
+    }
+    if (typeof read !== 'function') {
+      cancelBodyReader(reader);
       throw new Error('malformed reader');
     }
     return reader;
