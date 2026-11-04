@@ -242,7 +242,11 @@ function cancelBodyReader(reader) {
  */
 function readResponseHeader(response, name, method) {
   try {
-    return clean(response.headers?.get?.(name));
+    const value = response.headers?.get?.(name);
+    if (value !== null && typeof value !== 'string') {
+      throw new Error('invalid HTTP header value');
+    }
+    return value?.trim() ?? '';
   } catch {
     cancelResponseBody(response);
     throw new Error(`Malformed Solana RPC ${method} response headers`);
