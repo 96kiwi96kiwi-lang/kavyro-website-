@@ -264,7 +264,7 @@ function readHttpResponseMetadata(response) {
   try {
     const ok = response.ok;
     const status = response.status;
-    if (typeof ok !== 'boolean' || !Number.isSafeInteger(status)) {
+    if (typeof ok !== 'boolean' || !Number.isSafeInteger(status) || status < 100 || status > 599) {
       throw new Error('invalid HTTP metadata');
     }
     return { ok, status };
