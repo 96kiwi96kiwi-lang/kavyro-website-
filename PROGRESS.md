@@ -3,9 +3,10 @@
 ## 2026-11-04
 
 ### Hotovo
-- PR #56 now validates every untrusted Solana RPC stream read result before accessing `done` or `value`.
+- PR #56 validates untrusted Solana RPC stream read results before accessing `done` or `value`.
 - Null results, non-boolean `done`, and throwing `done`/`value` getters cancel the reader and fail closed with the canonical malformed-body error.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 294/294 tests passed.
+- RPC `content-type` and `content-length` values must now be strings or null; object-shaped values cancel the body before any read and normalize to the canonical header error.
+- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 295/295 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
