@@ -116,7 +116,10 @@ async function readBoundedJson(response, method, signal) {
       const decoder = new TextDecoder('utf-8', { fatal: true });
       let receivedBytes = 0;
       while (true) {
-        const chunk = await reader.read().catch(async () => {
+        let chunk;
+        try {
+          chunk = await reader.read();
+        } catch {
           if (!signal.aborted) {
             try {
               await reader.cancel();
@@ -125,9 +128,13 @@ async function readBoundedJson(response, method, signal) {
             }
           }
           throw new Error(`Malformed Solana RPC ${method} response body`);
-        });
-        if (chunk.done) break;
-        if (!(chunk.value instanceof Uint8Array)) {
+        }
+        let done;
+        try {
+          if (!chunk || typeof chunk !== 'object') throw new Error('invalid read result');
+          done = chunk.done;
+          if (typeof done !== 'boolean') throw new Error('invalid done flag');
+        } catch {
           try {
             await reader.cancel();
           } catch {
@@ -135,7 +142,27 @@ async function readBoundedJson(response, method, signal) {
           }
           throw new Error(`Malformed Solana RPC ${method} response body`);
         }
-        receivedBytes += chunk.value.byteLength;
+        if (done) break;
+        let value;
+        try {
+          value = chunk.value;
+        } catch {
+          try {
+            await reader.cancel();
+          } catch {
+            // Malformed evidence remains rejected even if stream cancellation fails.
+          }
+          throw new Error(`Malformed Solana RPC ${method} response body`);
+        }
+        if (!(value instanceof Uint8Array)) {
+          try {
+            await reader.cancel();
+          } catch {
+            // Malformed evidence remains rejected even if stream cancellation fails.
+          }
+          throw new Error(`Malformed Solana RPC ${method} response body`);
+        }
+        receivedBytes += value.byteLength;
         if (receivedBytes > MAX_RPC_RESPONSE_BYTES) {
           try {
             await reader.cancel();
@@ -145,7 +172,7 @@ async function readBoundedJson(response, method, signal) {
           throw new Error(`Solana RPC ${method} response too large`);
         }
         try {
-          bodyText += decoder.decode(chunk.value, { stream: true });
+          bodyText += decoder.decode(value, { stream: true });
         } catch {
           try {
             await reader.cancel();
