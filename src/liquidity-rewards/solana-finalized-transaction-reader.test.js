@@ -480,6 +480,40 @@ test('cancels and normalizes throwing RPC HTTP metadata accessors', async () => 
   }
 });
 
+test('cancels and rejects HTTP status values outside the canonical range', async () => {
+  for (const status of [99, 600]) {
+    let bodyRead = false;
+    let cancellations = 0;
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: status === 200,
+        status,
+        headers: { get: () => null },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {
+              cancellations += 1;
+            },
+          }),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC HTTP response/,
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(cancellations, 1);
+  }
+});
+
 test('rejects non-JSON and oversized declared RPC responses without reading their body', async () => {
   for (const headers of [
     { 'content-type': 'text/html', 'content-length': '2' },
