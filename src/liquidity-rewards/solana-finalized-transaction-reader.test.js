@@ -593,6 +593,44 @@ test('cancels and normalizes failed RPC response header reads', async () => {
   assert.equal(cancelled, true);
 });
 
+test('cancels and normalizes malformed RPC response header values', async () => {
+  for (const malformedHeader of ['content-type', 'content-length']) {
+    let bodyRead = false;
+    let cancellations = 0;
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => name.toLowerCase() === malformedHeader
+            ? /** @type {string} */ (/** @type {unknown} */ ({ attackerControlled: true }))
+            : 'application/json',
+        },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              bodyRead = true;
+              return { done: true };
+            },
+            cancel: async () => {
+              cancellations += 1;
+            },
+          }),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC getTransaction response headers/,
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(cancellations, 1);
+  }
+});
+
 test('rejects an adversarially long numeric content length without bigint parsing', async () => {
   let bodyRead = false;
   let cancelled = false;
