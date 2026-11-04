@@ -693,6 +693,54 @@ test('cancels and rejects malformed RPC response chunks', async () => {
   assert.equal(cancelled, true);
 });
 
+test('cancels and normalizes malformed RPC stream read results', async () => {
+  const malformedResults = [
+    null,
+    { done: 'false', value: new Uint8Array() },
+    Object.defineProperty({}, 'done', {
+      get: () => { throw new Error('untrusted done getter'); },
+    }),
+    Object.defineProperties({}, {
+      done: { value: false },
+      value: { get: () => { throw new Error('untrusted value getter'); } },
+    }),
+  ];
+
+  for (const malformedResult of malformedResults) {
+    let reads = 0;
+    let cancellations = 0;
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: {
+          getReader: () => ({
+            read: async () => {
+              reads += 1;
+              return /** @type {{done: boolean, value?: Uint8Array}} */ (
+                /** @type {unknown} */ (malformedResult)
+              );
+            },
+            cancel: async () => {
+              cancellations += 1;
+            },
+          }),
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC getTransaction response body/,
+    );
+    assert.equal(reads, 1);
+    assert.equal(cancellations, 1);
+  }
+});
+
 test('cancels and rejects a chunked RPC response that exceeds the byte cap', async () => {
   let cancelled = false;
   let reads = 0;
