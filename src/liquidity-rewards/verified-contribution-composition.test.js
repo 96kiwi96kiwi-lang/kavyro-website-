@@ -6,7 +6,7 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
-const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:1000,tokenAccountContextSlot:1001};
+const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',lpAmountBaseUnits:25n,poolContextSlot:1000,tokenAccountContextSlot:1001};
 
 /** @param {Record<string, unknown>} [overrides] */
 function deps(overrides={}) {
@@ -118,6 +118,14 @@ test('fails closed when verifier-owned LP provenance slots are missing or invali
  ]) {
   const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
   await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_PROVENANCE_REQUIRED/);
+ }
+});
+
+test('fails closed unless verifier-owned current LP balance is positive bigint',async()=>{
+ for (const lpAmountBaseUnits of [undefined, 0n, -1n, 25, '25']) {
+  const bad={...ownership,lpAmountBaseUnits};
+  const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
+  await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_BALANCE_REQUIRED/);
  }
 });
 
