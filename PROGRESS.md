@@ -11,7 +11,8 @@
 - Reader acquisition failures now use the response stream's direct cancellation path without repeating the failing `getReader()` call; synchronous and rejected cleanup failures remain contained.
 - Reader validation now falls back to direct stream cancellation when an untrusted reader's `cancel` accessor itself is inaccessible.
 - Late responses now also fall back to direct stream cancellation when their acquired reader cannot expose a callable cancellation method.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 300/300 tests passed.
+- Late response bodies that expose direct cancellation but no reader factory are now cancelled instead of being silently abandoned.
+- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 301/301 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
