@@ -73,7 +73,7 @@ const MAX_RPC_RESPONSE_BYTES_TEXT = String(MAX_RPC_RESPONSE_BYTES);
  *   ok: boolean,
  *   status: number,
  *   headers?: {get: (name: string) => string | null},
- *   body?: {getReader: () => ReadOnlyBodyReader} | null
+ *   body?: {getReader: () => ReadOnlyBodyReader, cancel?: () => Promise<void>} | null
  * }} ReadOnlyHttpResponse
  * @typedef {(url: string, init: {method: 'POST', headers: {'content-type': string}, body: string, signal: AbortSignal, redirect: 'error'}) => Promise<ReadOnlyHttpResponse>} ReadOnlyFetch
  */
@@ -206,10 +206,17 @@ async function readBoundedJson(response, method, signal) {
  * @returns {ReadOnlyBodyReader}
  */
 function acquireResponseReader(response, method) {
+  let body;
+  let reader;
   try {
-    const body = response.body;
+    body = response.body;
     if (!body || typeof body.getReader !== 'function') throw new Error('missing body');
-    const reader = body.getReader();
+    reader = body.getReader();
+  } catch {
+    cancelResponseStream(response);
+    throw new Error(`Malformed Solana RPC ${method} response body`);
+  }
+  try {
     if (!reader || typeof reader.cancel !== 'function') {
       throw new Error('malformed reader');
     }
@@ -227,6 +234,22 @@ function acquireResponseReader(response, method) {
     return reader;
   } catch {
     throw new Error(`Malformed Solana RPC ${method} response body`);
+  }
+}
+
+/**
+ * Best-effort cleanup when a response cannot yield a reader. Do not call
+ * getReader again: acquisition may be stateful or may keep throwing. Native
+ * ReadableStream bodies expose cancel directly while they remain unlocked.
+ * @param {ReadOnlyHttpResponse} response
+ */
+function cancelResponseStream(response) {
+  try {
+    const body = response.body;
+    if (!body || typeof body.cancel !== 'function') return;
+    void Promise.resolve(body.cancel()).catch(() => {});
+  } catch {
+    // The malformed response remains rejected even if cleanup is unavailable.
   }
 }
 
