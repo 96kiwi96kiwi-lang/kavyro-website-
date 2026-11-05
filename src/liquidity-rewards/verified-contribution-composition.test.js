@@ -6,7 +6,7 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
-const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',poolType:'RAYDIUM_CPMM',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',lpAmountBaseUnits:25n,poolContextSlot:1000,tokenAccountContextSlot:1001};
+const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',poolType:'RAYDIUM_CPMM',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',lpAmountBaseUnits:25n,poolContextSlot:1000,tokenAccountContextSlot:1001,contributionAmountVerified:false,payoutAuthorized:false};
 
 /** @param {Record<string, unknown>} [overrides] */
 function deps(overrides={}) {
@@ -28,6 +28,18 @@ test('production composition fails closed when ownership identity is not verifie
     {...ownership,evidenceKind:'CALLER_SUPPLIED'},
     {...ownership,poolType:'RAYDIUM_CLMM'},
     {...ownership,poolType:undefined},
+  ]) {
+    const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
+    await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_EVIDENCE_REQUIRED/);
+  }
+});
+
+test('current ownership evidence cannot claim contribution or payout authority',async()=>{
+  for (const bad of [
+    {...ownership,contributionAmountVerified:true},
+    {...ownership,contributionAmountVerified:undefined},
+    {...ownership,payoutAuthorized:true},
+    {...ownership,payoutAuthorized:undefined},
   ]) {
     const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
     await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_EVIDENCE_REQUIRED/);
