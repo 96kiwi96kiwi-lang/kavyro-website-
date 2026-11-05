@@ -7,7 +7,7 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const wallet='W',poolId='P',lpMint='LP',signature='SIG',tokenAccount='TA';
-const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet,poolId,tokenAccount,lpMint,poolContextSlot:1000,tokenAccountContextSlot:1001};
+const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet,poolId,tokenAccount,lpMint,lpAmountBaseUnits:20n,poolContextSlot:1000,tokenAccountContextSlot:1001};
 /** @param {number} accountIndex @param {string} mint @param {number} amount */
 const balance=(accountIndex,mint,amount)=>({accountIndex,mint,owner:wallet,uiTokenAmount:{amount:String(amount),decimals:0}});
 const transaction={exists:true,finalized:true,signature,providers:Object.freeze({transactionOperator:'primary-rpc',statusOperator:'status-rpc'}),slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:wallet,signer:true,writable:true},'KVRO_SOURCE',tokenAccount,poolId,RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:[wallet,'AUTH',poolId,tokenAccount,'KVRO_SOURCE','QUOTE_SOURCE','V0','V1',SPL_TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID,KAVYRO_MINT,'So11111111111111111111111111111111111111112',lpMint],data:'HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX'}]}},meta:{preTokenBalances:[balance(1,KAVYRO_MINT,1000),balance(2,lpMint,5)],postTokenBalances:[balance(1,KAVYRO_MINT,700),balance(2,lpMint,25)]}};
