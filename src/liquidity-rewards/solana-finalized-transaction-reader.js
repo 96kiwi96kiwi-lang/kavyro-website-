@@ -322,7 +322,11 @@ function readHttpResponseMetadata(response) {
 function cancelResponseBody(response) {
   try {
     const body = response?.body;
-    if (!body || typeof body.getReader !== 'function') return;
+    if (!body) return;
+    if (typeof body.getReader !== 'function') {
+      cancelResponseStream(response);
+      return;
+    }
     const reader = body.getReader();
     if (!cancelBodyReader(reader)) cancelResponseStream(response);
   } catch {
