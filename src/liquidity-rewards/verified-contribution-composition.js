@@ -53,6 +53,9 @@ export function createVerifiedContributionComposition(deps) {
           ownership.tokenAccount !== request.tokenAccount || typeof ownership.lpMint !== 'string' || !ownership.lpMint) {
         throw new Error('VERIFIER_OWNED_LP_EVIDENCE_REQUIRED');
       }
+      if (typeof ownership.lpAmountBaseUnits !== 'bigint' || ownership.lpAmountBaseUnits <= 0n) {
+        throw new Error('VERIFIER_OWNED_LP_BALANCE_REQUIRED');
+      }
       if (!Number.isSafeInteger(ownership.poolContextSlot) || ownership.poolContextSlot <= 0 ||
           !Number.isSafeInteger(ownership.tokenAccountContextSlot) || ownership.tokenAccountContextSlot <= 0) {
         throw new Error('VERIFIER_OWNED_LP_PROVENANCE_REQUIRED');
