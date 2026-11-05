@@ -376,6 +376,41 @@ test('normalizes a synchronous RPC body reader acquisition failure', async () =>
   assert.equal(acquisitions, 1);
 });
 
+test('cancels the RPC stream when body reader acquisition fails', async () => {
+  for (const cancelMode of ['resolve', 'throw', 'reject']) {
+    let acquisitions = 0;
+    let cancellationAttempts = 0;
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: {
+          getReader: () => {
+            acquisitions += 1;
+            throw new Error('untrusted body implementation failure');
+          },
+          cancel: () => {
+            cancellationAttempts += 1;
+            if (cancelMode === 'throw') throw new Error('synchronous cleanup failure');
+            if (cancelMode === 'reject') return Promise.reject(new Error('asynchronous cleanup failure'));
+            return Promise.resolve();
+          },
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => reader.readFinalizedTransaction(SIGNATURE),
+      /Malformed Solana RPC getTransaction response body/,
+    );
+    assert.equal(acquisitions, 1);
+    assert.equal(cancellationAttempts, 1);
+  }
+});
+
 test('cancels malformed RPC readers before rejecting their evidence', async () => {
   for (const readMode of ['missing', 'throwing']) {
     let cancellations = 0;
