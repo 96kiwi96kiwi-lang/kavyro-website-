@@ -260,6 +260,48 @@ test('cancels a response body when an abort-ignoring transport resolves after de
   assert.equal(cancelled, true);
 });
 
+test('falls back to stream cancellation for a late response with malformed reader cleanup', async () => {
+  let bodyRead = false;
+  let streamCancellations = 0;
+  const malformedReader = {
+    read: async () => {
+      bodyRead = true;
+      return { done: true };
+    },
+  };
+  Object.defineProperty(malformedReader, 'cancel', {
+    get: () => {
+      throw new Error('untrusted reader cancellation getter');
+    },
+  });
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, init) => new Promise((resolve) => {
+      init.signal.addEventListener('abort', () => {}, { once: true });
+      setTimeout(() => resolve({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: {
+          getReader: () => /** @type {{read: () => Promise<{done: boolean, value?: Uint8Array}>, cancel: () => Promise<void>}} */ (
+            /** @type {unknown} */ (malformedReader)
+          ),
+          cancel: async () => {
+            streamCancellations += 1;
+          },
+        },
+      }), 20);
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(bodyRead, false);
+  assert.equal(streamCancellations, 1);
+});
+
 test('keeps the RPC timeout active while streaming the response body', async () => {
   let aborted = false;
   const reader = createReader({
