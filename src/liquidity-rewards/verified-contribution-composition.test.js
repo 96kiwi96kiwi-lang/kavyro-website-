@@ -6,7 +6,7 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
-const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:100,tokenAccountContextSlot:101};
+const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:1000,tokenAccountContextSlot:1001};
 
 /** @param {Record<string, unknown>} [overrides] */
 function deps(overrides={}) {
@@ -79,7 +79,7 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
  assert.equal(result.positionId,'TA');
  assert.equal(result.contributedKvroBaseUnits,300n);
  assert.equal(result.contributionEvidenceId,'SIG:P:W');
- assert.equal(result.ownershipEvidenceId,'TA:100:101');
+ assert.equal(result.ownershipEvidenceId,'TA:1000:1001');
  assert.deepEqual(result.rpcProviders,{transactionOperator:'primary-rpc',statusOperator:'status-rpc'});
  assert.equal(result.payoutAuthorized,false);
 });
@@ -118,6 +118,23 @@ test('fails closed when verifier-owned LP provenance slots are missing or invali
  ]) {
   const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
   await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_PROVENANCE_REQUIRED/);
+ }
+});
+
+test('fails closed when current ownership evidence predates the finalized contribution',async()=>{
+ for (const bad of [
+  {...ownership,poolContextSlot:899},
+  {...ownership,tokenAccountContextSlot:899},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>bad},
+   transactionReader:{readFinalizedTransaction:async()=>finalizedTx},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(
+   ()=>composition.verify(request),
+   /VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION/,
+  );
  }
 });
 
