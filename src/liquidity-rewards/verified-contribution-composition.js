@@ -63,6 +63,10 @@ export function createVerifiedContributionComposition(deps) {
       const delta = verifyCpmmContributionDeltas(tx, {
         wallet: request.wallet, poolId: request.poolId, lpMint: ownership.lpMint,
       });
+      const contributionSlot = /** @type {number} */ (delta.slot);
+      if (ownership.poolContextSlot < contributionSlot || ownership.tokenAccountContextSlot < contributionSlot) {
+        throw new Error('VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION');
+      }
       if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
       if (delta.lpDestinationTokenAccount !== ownership.tokenAccount) {
         throw new Error('HISTORICAL_LP_POSITION_MISMATCH');
