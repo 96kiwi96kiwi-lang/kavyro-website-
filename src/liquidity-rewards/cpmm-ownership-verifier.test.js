@@ -37,6 +37,15 @@ test('fails closed when token account mint is not the verified pool LP mint', as
   await assert.rejects(() => verifier(pool(), account({ mint: 'different-lp' })).verifyCurrentOwnership(request), /LP mint/);
 });
 
+test('fails closed when the pool LP mint identity is missing or noncanonical', async () => {
+  for (const lpMint of ['', ' padded-mint ', null, { attackerControlled: true }]) {
+    await assert.rejects(
+      () => verifier(pool({ lpMint }), account({ mint: lpMint })).verifyCurrentOwnership(request),
+      /LP mint identity is invalid/,
+    );
+  }
+});
+
 test('fails closed when decoded token owner differs from requested wallet', async () => {
   await assert.rejects(() => verifier(pool(), account({ walletOwner: 'different-wallet' })).verifyCurrentOwnership(request), /owner does not match/);
 });
