@@ -258,12 +258,17 @@ function cancelResponseStream(response) {
  * Best-effort cleanup for an untrusted reader implementation. Contain both a
  * synchronous throw and an asynchronously rejected cancellation promise.
  * @param {ReadOnlyBodyReader} reader
+ * @returns {boolean} whether cancellation was invoked
  */
 function cancelBodyReader(reader) {
   try {
-    void Promise.resolve(reader.cancel()).catch(() => {});
+    const cancel = reader.cancel;
+    if (typeof cancel !== 'function') return false;
+    void Promise.resolve(cancel.call(reader)).catch(() => {});
+    return true;
   } catch {
     // Cleanup failure must not escape the fail-closed request boundary.
+    return false;
   }
 }
 
@@ -319,7 +324,7 @@ function cancelResponseBody(response) {
     const body = response?.body;
     if (!body || typeof body.getReader !== 'function') return;
     const reader = body.getReader();
-    cancelBodyReader(reader);
+    if (!cancelBodyReader(reader)) cancelResponseStream(response);
   } catch {
     // The timed-out request remains rejected even if cleanup is unavailable.
   }
