@@ -28,6 +28,9 @@ test('production composition fails closed when ownership identity is not verifie
     {...ownership,evidenceKind:'CALLER_SUPPLIED'},
     {...ownership,poolType:'RAYDIUM_CLMM'},
     {...ownership,poolType:undefined},
+    {...ownership,lpMint:' LP'},
+    {...ownership,lpMint:'LP\u0000'},
+    {...ownership,lpMint:{attackerControlled:true}},
   ]) {
     const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
     await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_EVIDENCE_REQUIRED/);
