@@ -9,7 +9,8 @@
 - RPC HTTP status metadata must now be a safe integer in the canonical `100–599` range; out-of-range values cancel the body before any read and fail closed.
 - Malformed RPC readers with a usable cancellation method are now cancelled before rejection, including throwing `read` method accessors.
 - Reader acquisition failures now use the response stream's direct cancellation path without repeating the failing `getReader()` call; synchronous and rejected cleanup failures remain contained.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 298/298 tests passed.
+- Reader validation now falls back to direct stream cancellation when an untrusted reader's `cancel` accessor itself is inaccessible.
+- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 299/299 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
