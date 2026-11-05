@@ -72,10 +72,10 @@ export function createVerifiedContributionComposition(deps) {
       // Snapshot verifier-owned facts before the next await. An injected adapter
       // must not be able to rewrite already-validated evidence while RPC I/O is pending.
       const verifiedOwnership = Object.freeze({
-        wallet: verifiedOwnership.wallet,
-        poolId: verifiedOwnership.poolId,
+        wallet: ownership.wallet,
+        poolId: ownership.poolId,
         tokenAccount: ownership.tokenAccount,
-        lpMint: verifiedOwnership.lpMint,
+        lpMint: ownership.lpMint,
         poolContextSlot: ownership.poolContextSlot,
         tokenAccountContextSlot: ownership.tokenAccountContextSlot,
       });
@@ -111,9 +111,9 @@ export function createVerifiedContributionComposition(deps) {
         verified: true,
         poolVerified: true,
         ownershipProven: true,
-        wallet: ownership.wallet,
-        poolId: ownership.poolId,
-        lpMint: ownership.lpMint,
+        wallet: verifiedOwnership.wallet,
+        poolId: verifiedOwnership.poolId,
+        lpMint: verifiedOwnership.lpMint,
         positionId: verifiedOwnership.tokenAccount,
         ownershipEvidenceId: JSON.stringify([
           verifiedOwnership.wallet,
