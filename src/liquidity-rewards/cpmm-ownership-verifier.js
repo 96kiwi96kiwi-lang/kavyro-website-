@@ -46,6 +46,9 @@ export function createCpmmOwnershipVerifier(options) {
       const canonicalPair = (pool.mintA === KAVYRO_MINT && pool.mintB === WRAPPED_SOL_MINT) ||
         (pool.mintB === KAVYRO_MINT && pool.mintA === WRAPPED_SOL_MINT);
       if (!canonicalPair) throw new Error('Pool mint pair does not match canonical KVRO/WSOL');
+      if (typeof pool.lpMint !== 'string' || !pool.lpMint || pool.lpMint.trim() !== pool.lpMint) {
+        throw new Error('Pool LP mint identity is invalid');
+      }
       if (tokenAccount.mint !== pool.lpMint) throw new Error('Token account mint does not match pool LP mint');
       if (tokenAccount.walletOwner !== request.wallet) throw new Error('Token account owner does not match wallet');
       if (typeof tokenAccount.amountBaseUnits !== 'bigint' || tokenAccount.amountBaseUnits <= 0n) {
