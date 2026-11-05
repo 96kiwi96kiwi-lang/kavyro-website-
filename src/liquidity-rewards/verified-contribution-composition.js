@@ -69,18 +69,28 @@ export function createVerifiedContributionComposition(deps) {
           !Number.isSafeInteger(ownership.tokenAccountContextSlot) || ownership.tokenAccountContextSlot <= 0) {
         throw new Error('VERIFIER_OWNED_LP_PROVENANCE_REQUIRED');
       }
+      // Snapshot verifier-owned facts before the next await. An injected adapter
+      // must not be able to rewrite already-validated evidence while RPC I/O is pending.
+      const verifiedOwnership = Object.freeze({
+        wallet: verifiedOwnership.wallet,
+        poolId: verifiedOwnership.poolId,
+        tokenAccount: ownership.tokenAccount,
+        lpMint: verifiedOwnership.lpMint,
+        poolContextSlot: ownership.poolContextSlot,
+        tokenAccountContextSlot: ownership.tokenAccountContextSlot,
+      });
 
       const tx = await deps.transactionReader.readFinalizedTransaction(request.signature);
       requireFinalizedWalletSigner(tx, request.wallet);
       const delta = verifyCpmmContributionDeltas(tx, {
-        wallet: request.wallet, poolId: request.poolId, lpMint: ownership.lpMint,
+        wallet: request.wallet, poolId: request.poolId, lpMint: verifiedOwnership.lpMint,
       });
       const contributionSlot = /** @type {number} */ (delta.slot);
-      if (ownership.poolContextSlot < contributionSlot || ownership.tokenAccountContextSlot < contributionSlot) {
+      if (verifiedOwnership.poolContextSlot < contributionSlot ||\n          verifiedOwnership.tokenAccountContextSlot < contributionSlot) {
         throw new Error('VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION');
       }
       if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
-      if (delta.lpDestinationTokenAccount !== ownership.tokenAccount) {
+      if (delta.lpDestinationTokenAccount !== verifiedOwnership.tokenAccount) {
         throw new Error('HISTORICAL_LP_POSITION_MISMATCH');
       }
       const observedAtSeconds = deps.nowSeconds();
@@ -104,14 +114,14 @@ export function createVerifiedContributionComposition(deps) {
         wallet: ownership.wallet,
         poolId: ownership.poolId,
         lpMint: ownership.lpMint,
-        positionId: ownership.tokenAccount,
+        positionId: verifiedOwnership.tokenAccount,
         ownershipEvidenceId: JSON.stringify([
-          ownership.wallet,
-          ownership.poolId,
-          ownership.lpMint,
-          ownership.tokenAccount,
-          ownership.poolContextSlot,
-          ownership.tokenAccountContextSlot,
+          verifiedOwnership.wallet,
+          verifiedOwnership.poolId,
+          verifiedOwnership.lpMint,
+          verifiedOwnership.tokenAccount,
+          verifiedOwnership.poolContextSlot,
+          verifiedOwnership.tokenAccountContextSlot,
         ]),
       });
     },
