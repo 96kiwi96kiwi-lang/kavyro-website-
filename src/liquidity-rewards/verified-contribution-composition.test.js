@@ -93,7 +93,7 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
  assert.equal(result.positionId,'TA');
  assert.equal(result.contributedKvroBaseUnits,300n);
  assert.equal(result.contributionEvidenceId,'SIG:P:W');
- assert.equal(result.ownershipEvidenceId,'TA:1000:1001');
+ assert.equal(result.ownershipEvidenceId,'["W","P","LP","TA",1000,1001]');
  assert.deepEqual(result.rpcProviders,{transactionOperator:'primary-rpc',statusOperator:'status-rpc'});
  assert.equal(result.payoutAuthorized,false);
 });
