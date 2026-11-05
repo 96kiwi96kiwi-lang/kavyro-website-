@@ -18,7 +18,8 @@
 - Padded or control-character ownership request identities are rejected before any pool or token-account reader is invoked.
 - Verified contribution composition now independently requires a positive bigint current LP balance from ownership evidence.
 - Verified contribution composition now independently binds current ownership evidence to the Raydium CPMM pool type and rejects missing or CLMM evidence.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 306/306 tests passed.
+- Current ownership evidence must explicitly remain non-authoritative for historical contribution amount and payout; missing or elevated authority flags fail closed.
+- Previous head was verified locally with `npm ci`, `npm run typecheck`, and `npm test`: 306/306 tests passed; this increment awaits an executable final-head runner.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
