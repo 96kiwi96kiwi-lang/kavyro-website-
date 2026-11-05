@@ -50,6 +50,17 @@ test('fails closed when either independently-read account is missing', async () 
   await assert.rejects(() => verifier(pool(), account({ exists: false })).verifyCurrentOwnership(request), /missing/);
 });
 
+test('fails closed when independently-read account addresses differ from the request', async () => {
+  await assert.rejects(
+    () => verifier(pool({ address: 'different-pool' })).verifyCurrentOwnership(request),
+    /address does not match/,
+  );
+  await assert.rejects(
+    () => verifier(pool(), account({ address: 'different-token-account' })).verifyCurrentOwnership(request),
+    /address does not match/,
+  );
+});
+
 test('fails closed on unsupported CLMM-shaped pool evidence', async () => {
   await assert.rejects(() => verifier(pool({ poolType: 'RAYDIUM_CLMM' })).verifyCurrentOwnership(request), /Unsupported pool type/);
 });
