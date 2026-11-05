@@ -64,6 +64,24 @@ test('caller cannot supply LP mint, contribution amount or proof flags through r
   assert.deepEqual(seen,{wallet:'W',poolId:'P',tokenAccount:'TA'});
 });
 
+test('noncanonical contribution identities fail before verifier or transaction reads',async()=>{
+ let ownershipReads=0;let transactionReads=0;
+ const composition=createVerifiedContributionComposition(deps({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>{ownershipReads+=1;return ownership;}},
+  transactionReader:{readFinalizedTransaction:async()=>{transactionReads+=1;return finalizedTx;}},
+ }));
+ for (const bad of [
+  {...request,signature:' SIG'},
+  {...request,wallet:'W '},
+  {...request,poolId:'P\u0000'},
+  {...request,tokenAccount:'\tTA'},
+ ]) {
+  await assert.rejects(()=>composition.verify(bad),/VERIFIED_CONTRIBUTION_REQUEST_INVALID/);
+ }
+ assert.equal(ownershipReads,0);
+ assert.equal(transactionReads,0);
+});
+
 test('composition exposes read-only capabilities only',()=>{
   const composition=createVerifiedContributionComposition(deps());
   assert.deepEqual(composition.capabilities,{read:true,buildTransaction:false,signTransaction:false,sendTransaction:false});
