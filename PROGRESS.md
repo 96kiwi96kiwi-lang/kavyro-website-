@@ -20,7 +20,8 @@
 - Verified contribution composition now independently binds current ownership evidence to the Raydium CPMM pool type and rejects missing or CLMM evidence.
 - Current ownership evidence must explicitly remain non-authoritative for historical contribution amount and payout; missing or elevated authority flags fail closed.
 - Ownership evidence identity now deterministically binds wallet, pool, LP mint, LP token account, and both RPC context slots instead of using a position-only identifier.
-- Last executable checkpoint `02a5638` was verified with `npm ci`, `npm run typecheck`, and `npm test`: 306/306 tests passed; all later increments await an executable final-head runner.
+- Verified contribution requests now reject padded or ASCII-control signature, wallet, pool, and LP-account identities before invoking either verifier or transaction reader.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 308/308 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
