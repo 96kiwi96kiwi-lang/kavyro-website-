@@ -59,6 +59,24 @@ test('fails closed when either independently-read account is missing', async () 
   await assert.rejects(() => verifier(pool(), account({ exists: false })).verifyCurrentOwnership(request), /missing/);
 });
 
+test('rejects noncanonical ownership request identities before invoking readers', async () => {
+  let poolReads = 0;
+  let tokenReads = 0;
+  const strict = createCpmmOwnershipVerifier({
+    poolReader: { readPoolAccount: async () => { poolReads += 1; return pool(); } },
+    tokenAccountReader: { readTokenAccount: async () => { tokenReads += 1; return account(); } },
+  });
+  for (const bad of [
+    { ...request, poolId: ' pool' },
+    { ...request, tokenAccount: 'lp-account ' },
+    { ...request, wallet: 'wallet\u0000owner' },
+  ]) {
+    await assert.rejects(() => strict.verifyCurrentOwnership(bad), /Invalid CPMM ownership request/);
+  }
+  assert.equal(poolReads, 0);
+  assert.equal(tokenReads, 0);
+});
+
 test('fails closed when independently-read account addresses differ from the request', async () => {
   await assert.rejects(
     () => verifier(pool({ address: 'different-pool' })).verifyCurrentOwnership(request),
