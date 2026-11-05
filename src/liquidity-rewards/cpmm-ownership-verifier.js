@@ -39,6 +39,9 @@ export function createCpmmOwnershipVerifier(options) {
         tokenAccountReader.readTokenAccount(request.tokenAccount),
       ]);
       if (!pool?.exists || !tokenAccount?.exists) throw new Error('Required on-chain account is missing');
+      if (pool.address !== request.poolId || tokenAccount.address !== request.tokenAccount) {
+        throw new Error('On-chain account address does not match ownership request');
+      }
       if (pool.poolType !== 'RAYDIUM_CPMM') throw new Error('Unsupported pool type');
       const canonicalPair = (pool.mintA === KAVYRO_MINT && pool.mintB === WRAPPED_SOL_MINT) ||
         (pool.mintB === KAVYRO_MINT && pool.mintA === WRAPPED_SOL_MINT);
