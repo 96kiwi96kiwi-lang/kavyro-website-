@@ -233,6 +233,7 @@ function acquireResponseReader(response, method) {
     }
     return reader;
   } catch {
+    cancelResponseStream(response);
     throw new Error(`Malformed Solana RPC ${method} response body`);
   }
 }
