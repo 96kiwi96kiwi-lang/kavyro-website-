@@ -1,5 +1,14 @@
 import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 
+/** @param {unknown} value */
+function isCanonicalIdentity(value) {
+  return typeof value === 'string' && value.length > 0 && value.trim() === value &&
+    ![...value].some((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+    });
+}
+
 /**
  * Read-only binding between a decoded Raydium CPMM PoolState and a decoded SPL token account.
  * This proves only current LP-token ownership/balance at independently reported RPC slots.
@@ -28,9 +37,8 @@ export function createCpmmOwnershipVerifier(options) {
      * @param {{poolId: string, tokenAccount: string, wallet: string}} request
      */
     verifyCurrentOwnership: async (request) => {
-      if (!request || typeof request.poolId !== 'string' || !request.poolId.trim() ||
-          typeof request.tokenAccount !== 'string' || !request.tokenAccount.trim() ||
-          typeof request.wallet !== 'string' || !request.wallet.trim()) {
+      if (!request || !isCanonicalIdentity(request.poolId) ||
+          !isCanonicalIdentity(request.tokenAccount) || !isCanonicalIdentity(request.wallet)) {
         throw new Error('Invalid CPMM ownership request');
       }
 
