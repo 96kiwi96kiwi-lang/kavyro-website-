@@ -22,7 +22,8 @@
 - Ownership evidence identity now deterministically binds wallet, pool, LP mint, LP token account, and both RPC context slots instead of using a position-only identifier.
 - Verified contribution requests now reject padded or ASCII-control signature, wallet, pool, and LP-account identities before invoking either verifier or transaction reader.
 - Composition independently rejects padded, control-character, or non-string LP-mint identities returned by an ownership verifier.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 308/308 tests passed.
+- Validated ownership facts are snapshotted before finalized-transaction RPC I/O, preventing an injected adapter from rewriting evidence across the await boundary.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 309/309 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
