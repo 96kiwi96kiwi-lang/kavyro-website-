@@ -14,7 +14,8 @@
 - Late response bodies that expose direct cancellation but no reader factory are now cancelled instead of being silently abandoned.
 - Current pool and LP-account ownership observations must now come from slots at or after the finalized contribution transaction slot.
 - Current ownership composition now independently binds both returned on-chain account addresses to the requested pool and LP token account.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 303/303 tests passed.
+- Current ownership verification rejects missing, padded, or non-string pool LP-mint identities before comparing the LP token account.
+- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 304/304 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
