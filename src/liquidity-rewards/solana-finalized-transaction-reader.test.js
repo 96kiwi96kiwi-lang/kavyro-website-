@@ -302,6 +302,33 @@ test('falls back to stream cancellation for a late response with malformed reade
   assert.equal(streamCancellations, 1);
 });
 
+test('directly cancels a late response body that cannot provide a reader', async () => {
+  let streamCancellations = 0;
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    timeoutMs: 5,
+    fetchImpl: async () => new Promise((resolve) => {
+      setTimeout(() => resolve({
+        ok: true,
+        status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        body: /** @type {{getReader: () => never, cancel: () => Promise<void>}} */ (
+          /** @type {unknown} */ ({
+            cancel: async () => {
+              streamCancellations += 1;
+            },
+          })
+        ),
+      }), 20);
+    }),
+  });
+
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /getTransaction timeout/);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(streamCancellations, 1);
+});
+
 test('keeps the RPC timeout active while streaming the response body', async () => {
   let aborted = false;
   const reader = createReader({
