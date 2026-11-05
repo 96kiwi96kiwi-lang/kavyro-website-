@@ -17,6 +17,7 @@
 - Current ownership verification rejects missing, padded, or non-string pool LP-mint identities before comparing the LP token account.
 - Padded or control-character ownership request identities are rejected before any pool or token-account reader is invoked.
 - Verified contribution composition now independently requires a positive bigint current LP balance from ownership evidence.
+- Verified contribution composition now independently binds current ownership evidence to the Raydium CPMM pool type and rejects missing or CLMM evidence.
 - Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 306/306 tests passed.
 
 ### Rozpracováno
