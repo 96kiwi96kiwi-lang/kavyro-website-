@@ -97,7 +97,14 @@ export function createVerifiedContributionComposition(deps) {
         poolId: ownership.poolId,
         lpMint: ownership.lpMint,
         positionId: ownership.tokenAccount,
-        ownershipEvidenceId: `${ownership.tokenAccount}:${ownership.poolContextSlot}:${ownership.tokenAccountContextSlot}`,
+        ownershipEvidenceId: JSON.stringify([
+          ownership.wallet,
+          ownership.poolId,
+          ownership.lpMint,
+          ownership.tokenAccount,
+          ownership.poolContextSlot,
+          ownership.tokenAccountContextSlot,
+        ]),
       });
     },
     capabilities: Object.freeze({read:true,buildTransaction:false,signTransaction:false,sendTransaction:false}),
