@@ -12,7 +12,8 @@
 - Reader validation now falls back to direct stream cancellation when an untrusted reader's `cancel` accessor itself is inaccessible.
 - Late responses now also fall back to direct stream cancellation when their acquired reader cannot expose a callable cancellation method.
 - Late response bodies that expose direct cancellation but no reader factory are now cancelled instead of being silently abandoned.
-- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 301/301 tests passed.
+- Current pool and LP-account ownership observations must now come from slots at or after the finalized contribution transaction slot.
+- Verified locally from the PR head with `npm ci`, `npm run typecheck`, and `npm test`: 302/302 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
