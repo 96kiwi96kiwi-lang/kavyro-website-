@@ -120,6 +120,29 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
 });
 
 
+test('validated ownership facts cannot be rewritten while finalized RPC evidence is pending',async()=>{
+ const mutableOwnership={...ownership};
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>mutableOwnership},
+  transactionReader:{readFinalizedTransaction:async()=>{
+   mutableOwnership.wallet='ATTACKER';
+   mutableOwnership.poolId='ATTACKER';
+   mutableOwnership.tokenAccount='ATTACKER';
+   mutableOwnership.lpMint='ATTACKER';
+   mutableOwnership.poolContextSlot=1;
+   mutableOwnership.tokenAccountContextSlot=1;
+   return finalizedTx;
+  }},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ const result=await composition.verify(request);
+ assert.equal(result.wallet,'W');
+ assert.equal(result.poolId,'P');
+ assert.equal(result.positionId,'TA');
+ assert.equal(result.lpMint,'LP');
+ assert.equal(result.ownershipEvidenceId,'["W","P","LP","TA",1000,1001]');
+});
+
 test('fails closed when independent RPC operator provenance is missing or not independent',async()=>{
  for(const providers of [
   undefined,
