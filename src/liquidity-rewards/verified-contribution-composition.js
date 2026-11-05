@@ -49,8 +49,8 @@ export function createVerifiedContributionComposition(deps) {
         wallet: request.wallet, poolId: request.poolId, tokenAccount: request.tokenAccount,
       });
       if (!ownership || ownership.verified !== true || ownership.evidenceKind !== 'CURRENT_CPMM_LP_OWNERSHIP' ||
-          ownership.poolType !== 'RAYDIUM_CPMM' ||
-          ownership.wallet !== request.wallet || ownership.poolId !== request.poolId ||
+          ownership.poolType !== 'RAYDIUM_CPMM' || ownership.contributionAmountVerified !== false ||
+          ownership.payoutAuthorized !== false || ownership.wallet !== request.wallet || ownership.poolId !== request.poolId ||
           ownership.tokenAccount !== request.tokenAccount || typeof ownership.lpMint !== 'string' || !ownership.lpMint) {
         throw new Error('VERIFIER_OWNED_LP_EVIDENCE_REQUIRED');
       }
