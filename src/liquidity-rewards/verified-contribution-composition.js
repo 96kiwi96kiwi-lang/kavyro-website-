@@ -86,7 +86,8 @@ export function createVerifiedContributionComposition(deps) {
         wallet: request.wallet, poolId: request.poolId, lpMint: verifiedOwnership.lpMint,
       });
       const contributionSlot = /** @type {number} */ (delta.slot);
-      if (verifiedOwnership.poolContextSlot < contributionSlot ||\n          verifiedOwnership.tokenAccountContextSlot < contributionSlot) {
+      if (verifiedOwnership.poolContextSlot < contributionSlot ||
+          verifiedOwnership.tokenAccountContextSlot < contributionSlot) {
         throw new Error('VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION');
       }
       if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
