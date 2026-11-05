@@ -3,6 +3,15 @@
 import { verifyCpmmContributionDeltas } from './cpmm-contribution-delta-verifier.js';
 import { composeContributionEntitlementEvidence } from './contribution-entitlement-evidence.js';
 
+/** @param {unknown} value */
+function isCanonicalIdentity(value) {
+  return typeof value === 'string' && value.length > 0 && value.trim() === value &&
+    ![...value].some((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+    });
+}
+
 /** @param {unknown} txValue @param {string} wallet */
 function requireFinalizedWalletSigner(txValue, wallet) {
   if (!txValue || typeof txValue !== 'object') throw new Error('FINALIZED_WALLET_SIGNER_REQUIRED');
@@ -38,10 +47,9 @@ export function createVerifiedContributionComposition(deps) {
   return Object.freeze({
     /** @param {{signature:string,wallet:string,poolId:string,tokenAccount:string}} request */
     async verify(request) {
-      if (!request || typeof request.signature !== 'string' || !request.signature.trim() ||
-          typeof request.wallet !== 'string' || !request.wallet.trim() ||
-          typeof request.poolId !== 'string' || !request.poolId.trim() ||
-          typeof request.tokenAccount !== 'string' || !request.tokenAccount.trim()) {
+      if (!request || !isCanonicalIdentity(request.signature) ||
+          !isCanonicalIdentity(request.wallet) || !isCanonicalIdentity(request.poolId) ||
+          !isCanonicalIdentity(request.tokenAccount)) {
         throw new Error('VERIFIED_CONTRIBUTION_REQUEST_INVALID');
       }
 
