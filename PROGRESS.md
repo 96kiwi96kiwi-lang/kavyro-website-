@@ -25,7 +25,8 @@
 - Composition independently rejects padded, control-character, or non-string LP-mint identities returned by an ownership verifier.
 - Validated ownership facts are snapshotted before finalized-transaction RPC I/O, preventing an injected adapter from rewriting evidence across the await boundary.
 - Finalized transaction evidence now rejects top-level signatures that only match after trimming; response provenance must remain byte-for-byte canonical.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 311/311 tests passed.
+- Primitive finalized provenance is snapshotted once and reused by nested deposit verification, preventing changing response getters from rewriting signature, slot, or block time.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 312/312 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
