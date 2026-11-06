@@ -13,6 +13,7 @@ const base = Object.freeze({
   kvroMint: KAVYRO_MINT,
   quoteMint: WRAPPED_SOL_MINT,
   kvroSourceOwner: 'TEST_WALLET',
+  rpcProviders: Object.freeze({ transactionOperator: 'primary-rpc', statusOperator: 'status-rpc' }),
   kvroTransferredBaseUnits: 1000n,
   lpMintedBaseUnits: 50n,
   slot: 123,
@@ -26,6 +27,7 @@ test('verifies independently decoded finalized CPMM contribution receipt facts',
   assert.equal(result.verified, true);
   assert.equal(result.contributedKvroBaseUnits, 1000n);
   assert.equal(result.contributionAmountVerified, true);
+  assert.deepEqual(result.rpcProviders, { transactionOperator: 'primary-rpc', statusOperator: 'status-rpc' });
   assert.equal(result.payoutAuthorized, false);
 });
 
@@ -38,6 +40,20 @@ test('fails closed on wallet, mint, pool type and amount mismatch', () => {
   assert.throws(() => verifyCpmmContributionReceipt({ ...base, kvroMint: 'OTHER' }), /MINT_MISMATCH/);
   assert.throws(() => verifyCpmmContributionReceipt({ ...base, poolType: 'RAYDIUM_CLMM' }), /UNSUPPORTED_POOL_TYPE/);
   assert.throws(() => verifyCpmmContributionReceipt({ ...base, kvroTransferredBaseUnits: 0n }), /KVRO_TRANSFER_REQUIRED/);
+});
+
+test('fails closed unless two canonical independent RPC operators are preserved', () => {
+  for (const rpcProviders of [
+    undefined,
+    { transactionOperator: 'same-rpc', statusOperator: 'same-rpc' },
+    { transactionOperator: 'Primary RPC', statusOperator: 'status-rpc' },
+    { transactionOperator: 'primary-rpc', statusOperator: ' status-rpc ' },
+  ]) {
+    assert.throws(
+      () => verifyCpmmContributionReceipt({ ...base, rpcProviders }),
+      /RPC_PROVENANCE_REQUIRED/,
+    );
+  }
 });
 
 test('fails closed on non-finalized, future or stale receipt evidence', () => {

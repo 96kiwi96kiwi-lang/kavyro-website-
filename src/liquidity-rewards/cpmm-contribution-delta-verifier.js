@@ -10,6 +10,13 @@ import { verifyRaydiumCpmmDepositInstruction } from './raydium-cpmm-deposit-veri
 const str = (v) => typeof v === 'string' ? v.trim() : '';
 
 /** @param {unknown} v */
+const canonicalIdentity = (v) => typeof v === 'string' && v.length > 0 && v === str(v) &&
+  ![...v].some(character => {
+    const codePoint = character.codePointAt(0);
+    return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+  });
+
+/** @param {unknown} v */
 function amount(v) {
   if (!v || typeof v !== 'object' || !('amount' in v) || typeof v.amount !== 'string' || !/^\d+$/.test(v.amount)) return null;
   return BigInt(v.amount);
@@ -24,16 +31,24 @@ function amount(v) {
 export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (!txEvidence || typeof txEvidence !== 'object' || !expected) throw new Error('CPMM_CONTRIBUTION_EVIDENCE_REQUIRED');
   const e = /** @type {Record<string, unknown>} */ (txEvidence);
-  if (e.exists !== true || e.finalized !== true || !str(e.signature) ||
-      !Number.isSafeInteger(e.slot) || /** @type {number} */(e.slot) <= 0 ||
-      !Number.isSafeInteger(e.blockTimeSeconds) || /** @type {number} */(e.blockTimeSeconds) < 0) {
+  const exists=e.exists, finalized=e.finalized, signature=e.signature,
+    slot=e.slot, blockTimeSeconds=e.blockTimeSeconds;
+  if (exists !== true || finalized !== true || typeof signature !== 'string' ||
+      signature !== str(signature) || !signature ||
+      !Number.isSafeInteger(slot) || /** @type {number} */(slot) <= 0 ||
+      !Number.isSafeInteger(blockTimeSeconds) || /** @type {number} */(blockTimeSeconds) < 0) {
     throw new Error('CPMM_CONTRIBUTION_PROVENANCE_INVALID');
   }
-  const wallet=str(expected.wallet), poolId=str(expected.poolId), lpMint=str(expected.lpMint);
+  const walletValue=expected.wallet, poolValue=expected.poolId, lpMintValue=expected.lpMint;
+  const wallet=str(walletValue), poolId=str(poolValue), lpMint=str(lpMintValue);
   const program=str(expected.poolProgramId ?? RAYDIUM_CPMM_PROGRAM_ID);
-  if (!wallet || !poolId || !lpMint || program !== RAYDIUM_CPMM_PROGRAM_ID) throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
+  if (!canonicalIdentity(walletValue) || !canonicalIdentity(poolValue) ||
+      !canonicalIdentity(lpMintValue) || program !== RAYDIUM_CPMM_PROGRAM_ID) {
+    throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
+  }
   if (!e.transaction || typeof e.transaction !== 'object' || !e.meta || typeof e.meta !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
   const tx=/** @type {Record<string,unknown>} */(e.transaction), meta=/** @type {Record<string,unknown>} */(e.meta);
+  const stableEvidence=Object.freeze({exists,finalized,signature,slot,blockTimeSeconds,transaction:tx,meta});
   const message=tx.message;
   if (!message || typeof message !== 'object') throw new Error('CPMM_CONTRIBUTION_MESSAGE_INVALID');
   const m=/** @type {Record<string,unknown>} */(message);
@@ -72,7 +87,7 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   requireUniqueIndices(after);
   // Balance deltas are necessary but not sufficient: bind them to the exact token accounts
   // named by the published Raydium CPMM deposit instruction.
-  const deposit=verifyRaydiumCpmmDepositInstruction(txEvidence,{wallet,poolId,lpMint});
+  const deposit=verifyRaydiumCpmmDepositInstruction(stableEvidence,{wallet,poolId,lpMint});
   /** @param {readonly NormalizedBalance[]} balances @param {string} mint @param {string} owner @param {string} account */
   const indicesFor=(balances,mint,owner,account)=>new Set(balances.filter(x=>x.mint===mint&&x.owner===owner&&keyStrings[x.index]===account).map(x=>x.index));
   const kvroBeforeIndices=indicesFor(before,KAVYRO_MINT,wallet,deposit.kvroSourceAccount);
@@ -99,9 +114,9 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (kvroDelta >= 0n) throw new Error('CPMM_CONTRIBUTION_KVRO_DEBIT_REQUIRED');
   if (lpDelta <= 0n) throw new Error('CPMM_CONTRIBUTION_LP_MINT_CREDIT_REQUIRED');
   return Object.freeze({
-    finalized:true,signature:str(e.signature),wallet,poolId,poolType:'RAYDIUM_CPMM',lpMint,
+    finalized:true,signature,wallet,poolId,poolType:'RAYDIUM_CPMM',lpMint,
     kvroMint:KAVYRO_MINT,quoteMint:deposit.quoteMint,kvroSourceOwner:wallet,kvroSourceTokenAccount:deposit.kvroSourceAccount,
     lpDestinationTokenAccount:deposit.lpDestinationAccount,kvroTransferredBaseUnits:-kvroDelta,
-    lpMintedBaseUnits:lpDelta,slot:e.slot,blockTimeSeconds:e.blockTimeSeconds,payoutAuthorized:false,
+    lpMintedBaseUnits:lpDelta,slot,blockTimeSeconds,payoutAuthorized:false,
   });
 }

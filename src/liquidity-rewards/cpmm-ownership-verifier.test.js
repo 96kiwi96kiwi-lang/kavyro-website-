@@ -37,6 +37,15 @@ test('fails closed when token account mint is not the verified pool LP mint', as
   await assert.rejects(() => verifier(pool(), account({ mint: 'different-lp' })).verifyCurrentOwnership(request), /LP mint/);
 });
 
+test('fails closed when the pool LP mint identity is missing or noncanonical', async () => {
+  for (const lpMint of ['', ' padded-mint ', null, { attackerControlled: true }]) {
+    await assert.rejects(
+      () => verifier(pool({ lpMint }), account({ mint: lpMint })).verifyCurrentOwnership(request),
+      /LP mint identity is invalid/,
+    );
+  }
+});
+
 test('fails closed when decoded token owner differs from requested wallet', async () => {
   await assert.rejects(() => verifier(pool(), account({ walletOwner: 'different-wallet' })).verifyCurrentOwnership(request), /owner does not match/);
 });
@@ -48,6 +57,35 @@ test('fails closed on zero LP balance', async () => {
 test('fails closed when either independently-read account is missing', async () => {
   await assert.rejects(() => verifier(pool({ exists: false })).verifyCurrentOwnership(request), /missing/);
   await assert.rejects(() => verifier(pool(), account({ exists: false })).verifyCurrentOwnership(request), /missing/);
+});
+
+test('rejects noncanonical ownership request identities before invoking readers', async () => {
+  let poolReads = 0;
+  let tokenReads = 0;
+  const strict = createCpmmOwnershipVerifier({
+    poolReader: { readPoolAccount: async () => { poolReads += 1; return pool(); } },
+    tokenAccountReader: { readTokenAccount: async () => { tokenReads += 1; return account(); } },
+  });
+  for (const bad of [
+    { ...request, poolId: ' pool' },
+    { ...request, tokenAccount: 'lp-account ' },
+    { ...request, wallet: 'wallet\u0000owner' },
+  ]) {
+    await assert.rejects(() => strict.verifyCurrentOwnership(bad), /Invalid CPMM ownership request/);
+  }
+  assert.equal(poolReads, 0);
+  assert.equal(tokenReads, 0);
+});
+
+test('fails closed when independently-read account addresses differ from the request', async () => {
+  await assert.rejects(
+    () => verifier(pool({ address: 'different-pool' })).verifyCurrentOwnership(request),
+    /address does not match/,
+  );
+  await assert.rejects(
+    () => verifier(pool(), account({ address: 'different-token-account' })).verifyCurrentOwnership(request),
+    /address does not match/,
+  );
 });
 
 test('fails closed on unsupported CLMM-shaped pool evidence', async () => {
