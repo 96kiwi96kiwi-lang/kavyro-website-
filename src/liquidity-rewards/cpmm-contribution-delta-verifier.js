@@ -24,7 +24,8 @@ function amount(v) {
 export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (!txEvidence || typeof txEvidence !== 'object' || !expected) throw new Error('CPMM_CONTRIBUTION_EVIDENCE_REQUIRED');
   const e = /** @type {Record<string, unknown>} */ (txEvidence);
-  if (e.exists !== true || e.finalized !== true || !str(e.signature) ||
+  if (e.exists !== true || e.finalized !== true || typeof e.signature !== 'string' ||
+      e.signature !== str(e.signature) || !e.signature ||
       !Number.isSafeInteger(e.slot) || /** @type {number} */(e.slot) <= 0 ||
       !Number.isSafeInteger(e.blockTimeSeconds) || /** @type {number} */(e.blockTimeSeconds) < 0) {
     throw new Error('CPMM_CONTRIBUTION_PROVENANCE_INVALID');
