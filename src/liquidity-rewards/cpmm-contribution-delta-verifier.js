@@ -32,9 +32,13 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
       !Number.isSafeInteger(blockTimeSeconds) || /** @type {number} */(blockTimeSeconds) < 0) {
     throw new Error('CPMM_CONTRIBUTION_PROVENANCE_INVALID');
   }
-  const wallet=str(expected.wallet), poolId=str(expected.poolId), lpMint=str(expected.lpMint);
+  const walletValue=expected.wallet, poolValue=expected.poolId, lpMintValue=expected.lpMint;
+  const wallet=str(walletValue), poolId=str(poolValue), lpMint=str(lpMintValue);
   const program=str(expected.poolProgramId ?? RAYDIUM_CPMM_PROGRAM_ID);
-  if (!wallet || !poolId || !lpMint || program !== RAYDIUM_CPMM_PROGRAM_ID) throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
+  if (walletValue !== wallet || poolValue !== poolId || lpMintValue !== lpMint ||
+      !wallet || !poolId || !lpMint || program !== RAYDIUM_CPMM_PROGRAM_ID) {
+    throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
+  }
   if (!e.transaction || typeof e.transaction !== 'object' || !e.meta || typeof e.meta !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
   const tx=/** @type {Record<string,unknown>} */(e.transaction), meta=/** @type {Record<string,unknown>} */(e.meta);
   const stableEvidence=Object.freeze({exists,finalized,signature,slot,blockTimeSeconds,transaction:tx,meta});
