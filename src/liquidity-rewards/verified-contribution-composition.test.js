@@ -85,6 +85,27 @@ test('noncanonical contribution identities fail before verifier or transaction r
  assert.equal(transactionReads,0);
 });
 
+test('validated request identities cannot be rewritten while ownership verification is pending',async()=>{
+ const mutableRequest={...request};
+ let transactionSignature;
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>{
+   mutableRequest.signature='ATTACKER';
+   mutableRequest.wallet='ATTACKER';
+   mutableRequest.poolId='ATTACKER';
+   mutableRequest.tokenAccount='ATTACKER';
+   return ownership;
+  }},
+  transactionReader:{readFinalizedTransaction:async(signature)=>{transactionSignature=signature;return finalizedTx;}},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ const result=await composition.verify(mutableRequest);
+ assert.equal(transactionSignature,'SIG');
+ assert.equal(result.wallet,'W');
+ assert.equal(result.poolId,'P');
+ assert.equal(result.positionId,'TA');
+});
+
 test('composition exposes read-only capabilities only',()=>{
   const composition=createVerifiedContributionComposition(deps());
   assert.deepEqual(composition.capabilities,{read:true,buildTransaction:false,signTransaction:false,sendTransaction:false});
