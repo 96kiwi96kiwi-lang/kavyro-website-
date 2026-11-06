@@ -27,7 +27,8 @@
 - Finalized transaction evidence now rejects top-level signatures that only match after trimming; response provenance must remain byte-for-byte canonical.
 - Primitive finalized provenance is snapshotted once and reused by nested deposit verification, preventing changing response getters from rewriting signature, slot, or block time.
 - The standalone delta verifier now rejects wallet, pool, or LP-mint expectations that only match after normalization.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 313/313 tests passed.
+- Standalone delta identity validation also rejects embedded ASCII control characters instead of treating them as an alternate scope.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 314/314 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
