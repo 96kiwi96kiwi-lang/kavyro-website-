@@ -52,14 +52,23 @@ export function createVerifiedContributionComposition(deps) {
           !isCanonicalIdentity(request.tokenAccount)) {
         throw new Error('VERIFIED_CONTRIBUTION_REQUEST_INVALID');
       }
+      const verifiedRequest = Object.freeze({
+        signature: request.signature,
+        wallet: request.wallet,
+        poolId: request.poolId,
+        tokenAccount: request.tokenAccount,
+      });
 
       const ownership = await deps.ownershipVerifier.verifyCurrentOwnership({
-        wallet: request.wallet, poolId: request.poolId, tokenAccount: request.tokenAccount,
+        wallet: verifiedRequest.wallet,
+        poolId: verifiedRequest.poolId,
+        tokenAccount: verifiedRequest.tokenAccount,
       });
       if (!ownership || ownership.verified !== true || ownership.evidenceKind !== 'CURRENT_CPMM_LP_OWNERSHIP' ||
           ownership.poolType !== 'RAYDIUM_CPMM' || ownership.contributionAmountVerified !== false ||
-          ownership.payoutAuthorized !== false || ownership.wallet !== request.wallet || ownership.poolId !== request.poolId ||
-          ownership.tokenAccount !== request.tokenAccount || !isCanonicalIdentity(ownership.lpMint)) {
+          ownership.payoutAuthorized !== false || ownership.wallet !== verifiedRequest.wallet ||
+          ownership.poolId !== verifiedRequest.poolId ||
+          ownership.tokenAccount !== verifiedRequest.tokenAccount || !isCanonicalIdentity(ownership.lpMint)) {
         throw new Error('VERIFIER_OWNED_LP_EVIDENCE_REQUIRED');
       }
       if (typeof ownership.lpAmountBaseUnits !== 'bigint' || ownership.lpAmountBaseUnits <= 0n) {
@@ -80,17 +89,19 @@ export function createVerifiedContributionComposition(deps) {
         tokenAccountContextSlot: ownership.tokenAccountContextSlot,
       });
 
-      const tx = await deps.transactionReader.readFinalizedTransaction(request.signature);
-      requireFinalizedWalletSigner(tx, request.wallet);
+      const tx = await deps.transactionReader.readFinalizedTransaction(verifiedRequest.signature);
+      requireFinalizedWalletSigner(tx, verifiedRequest.wallet);
       const delta = verifyCpmmContributionDeltas(tx, {
-        wallet: request.wallet, poolId: request.poolId, lpMint: verifiedOwnership.lpMint,
+        wallet: verifiedRequest.wallet,
+        poolId: verifiedRequest.poolId,
+        lpMint: verifiedOwnership.lpMint,
       });
       const contributionSlot = /** @type {number} */ (delta.slot);
       if (verifiedOwnership.poolContextSlot < contributionSlot ||
           verifiedOwnership.tokenAccountContextSlot < contributionSlot) {
         throw new Error('VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION');
       }
-      if (delta.signature !== request.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
+      if (delta.signature !== verifiedRequest.signature) throw new Error('CONTRIBUTION_SIGNATURE_MISMATCH');
       if (delta.lpDestinationTokenAccount !== verifiedOwnership.tokenAccount) {
         throw new Error('HISTORICAL_LP_POSITION_MISMATCH');
       }
