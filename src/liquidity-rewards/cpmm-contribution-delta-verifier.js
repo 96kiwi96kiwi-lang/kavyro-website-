@@ -10,6 +10,13 @@ import { verifyRaydiumCpmmDepositInstruction } from './raydium-cpmm-deposit-veri
 const str = (v) => typeof v === 'string' ? v.trim() : '';
 
 /** @param {unknown} v */
+const canonicalIdentity = (v) => typeof v === 'string' && v.length > 0 && v === str(v) &&
+  ![...v].some(character => {
+    const codePoint = character.codePointAt(0);
+    return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+  });
+
+/** @param {unknown} v */
 function amount(v) {
   if (!v || typeof v !== 'object' || !('amount' in v) || typeof v.amount !== 'string' || !/^\d+$/.test(v.amount)) return null;
   return BigInt(v.amount);
@@ -35,8 +42,8 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   const walletValue=expected.wallet, poolValue=expected.poolId, lpMintValue=expected.lpMint;
   const wallet=str(walletValue), poolId=str(poolValue), lpMint=str(lpMintValue);
   const program=str(expected.poolProgramId ?? RAYDIUM_CPMM_PROGRAM_ID);
-  if (walletValue !== wallet || poolValue !== poolId || lpMintValue !== lpMint ||
-      !wallet || !poolId || !lpMint || program !== RAYDIUM_CPMM_PROGRAM_ID) {
+  if (!canonicalIdentity(walletValue) || !canonicalIdentity(poolValue) ||
+      !canonicalIdentity(lpMintValue) || program !== RAYDIUM_CPMM_PROGRAM_ID) {
     throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
   }
   if (!e.transaction || typeof e.transaction !== 'object' || !e.meta || typeof e.meta !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
