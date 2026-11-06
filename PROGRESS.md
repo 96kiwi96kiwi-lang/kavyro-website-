@@ -26,7 +26,8 @@
 - Validated ownership facts are snapshotted before finalized-transaction RPC I/O, preventing an injected adapter from rewriting evidence across the await boundary.
 - Finalized transaction evidence now rejects top-level signatures that only match after trimming; response provenance must remain byte-for-byte canonical.
 - Primitive finalized provenance is snapshotted once and reused by nested deposit verification, preventing changing response getters from rewriting signature, slot, or block time.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 312/312 tests passed.
+- The standalone delta verifier now rejects wallet, pool, or LP-mint expectations that only match after normalization.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 313/313 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
