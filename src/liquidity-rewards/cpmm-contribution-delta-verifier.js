@@ -41,9 +41,11 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   }
   const walletValue=expected.wallet, poolValue=expected.poolId, lpMintValue=expected.lpMint;
   const wallet=str(walletValue), poolId=str(poolValue), lpMint=str(lpMintValue);
-  const program=str(expected.poolProgramId ?? RAYDIUM_CPMM_PROGRAM_ID);
+  const programValue=expected.poolProgramId ?? RAYDIUM_CPMM_PROGRAM_ID;
+  const program=str(programValue);
   if (!canonicalIdentity(walletValue) || !canonicalIdentity(poolValue) ||
-      !canonicalIdentity(lpMintValue) || program !== RAYDIUM_CPMM_PROGRAM_ID) {
+      !canonicalIdentity(lpMintValue) || !canonicalIdentity(programValue) ||
+      program !== RAYDIUM_CPMM_PROGRAM_ID) {
     throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
   }
   if (!e.transaction || typeof e.transaction !== 'object' || !e.meta || typeof e.meta !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
