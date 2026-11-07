@@ -1,6 +1,6 @@
 # Progress
 
-## 2026-11-06
+## 2026-11-07
 
 ### Hotovo
 - PR #56 validates untrusted Solana RPC stream read results before accessing `done` or `value`.
@@ -28,7 +28,8 @@
 - Primitive finalized provenance is snapshotted once and reused by nested deposit verification, preventing changing response getters from rewriting signature, slot, or block time.
 - The standalone delta verifier now rejects wallet, pool, or LP-mint expectations that only match after normalization.
 - Standalone delta identity validation also rejects embedded ASCII control characters instead of treating them as an alternate scope.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 314/314 tests passed.
+- The expected Raydium CPMM program id must also remain canonical; padded or control-character aliases fail closed.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 315/315 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
