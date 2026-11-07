@@ -29,7 +29,8 @@
 - The standalone delta verifier now rejects wallet, pool, or LP-mint expectations that only match after normalization.
 - Standalone delta identity validation also rejects embedded ASCII control characters instead of treating them as an alternate scope.
 - The expected Raydium CPMM program id must also remain canonical; padded or control-character aliases fail closed.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 315/315 tests passed.
+- Finalized transaction account keys must remain canonical; padded or control-character wallet and program aliases fail closed before balance-delta evaluation.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 316/316 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
