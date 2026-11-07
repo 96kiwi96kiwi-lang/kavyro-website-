@@ -55,7 +55,11 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (!message || typeof message !== 'object') throw new Error('CPMM_CONTRIBUTION_MESSAGE_INVALID');
   const m=/** @type {Record<string,unknown>} */(message);
   const keys=Array.isArray(m.accountKeys) ? m.accountKeys : [];
-  const keyStrings=keys.map(k => typeof k === 'string' ? k : (k && typeof k === 'object' && 'pubkey' in k ? str(k.pubkey) : ''));
+  const keyStrings=keys.map(k => {
+    const value=typeof k === 'string' ? k : (k && typeof k === 'object' && 'pubkey' in k ? k.pubkey : undefined);
+    if (!canonicalIdentity(value)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_KEY_INVALID');
+    return value;
+  });
   if (!keyStrings.includes(wallet) || !keyStrings.includes(poolId) || !keyStrings.includes(program)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_BINDING_MISMATCH');
 
   const pre=Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : [];
