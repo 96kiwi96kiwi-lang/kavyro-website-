@@ -18,8 +18,13 @@ const canonicalIdentity = (v) => typeof v === 'string' && v.length > 0 && v === 
 
 /** @param {unknown} v */
 function amount(v) {
-  if (!v || typeof v !== 'object' || !('amount' in v)) return null;
-  const descriptor=Object.getOwnPropertyDescriptor(v,'amount');
+  if (!v || typeof v !== 'object') return null;
+  let descriptor;
+  try {
+    descriptor=Object.getOwnPropertyDescriptor(v,'amount');
+  } catch {
+    return null;
+  }
   const raw=descriptor && 'value' in descriptor ? descriptor.value : undefined;
   if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null;
   return BigInt(raw);
