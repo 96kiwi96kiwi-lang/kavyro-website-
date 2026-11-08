@@ -94,3 +94,5 @@ test('unrelated wallet-owned token accounts cannot substitute for instruction-bo
  ];
  assert.throws(()=>verifyCpmmContributionDeltas(bad,{wallet,poolId,lpMint}),/KVRO_DEBIT_REQUIRED/);
 });
+
+test('fails closed on accessor-backed token balance arrays without invoking getters',()=>{for(const field of ['preTokenBalances','postTokenBalances']){const accessorBalances=structuredClone(tx);let reads=0;Object.defineProperty(accessorBalances.meta,field,{get(){reads+=1;throw new Error('untrusted getter');}});assert.throws(()=>verifyCpmmContributionDeltas(accessorBalances,{wallet,poolId,lpMint}),/TOKEN_BALANCES_INVALID/);assert.equal(reads,0);}});
