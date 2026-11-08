@@ -80,10 +80,11 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   const norm=(b)=>{
     if(!b||typeof b!=='object') throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ENTRY_INVALID');
     const x=/** @type {Record<string,unknown>} */(b);
-    if(!Number.isSafeInteger(x.accountIndex) || /** @type {number} */(x.accountIndex)<0) {
+    const accountIndex=ownDataValue(x,'accountIndex');
+    if(!Number.isSafeInteger(accountIndex) || /** @type {number} */(accountIndex)<0) {
       throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_INDEX_INVALID');
     }
-    const index=/** @type {number} */(x.accountIndex);
+    const index=/** @type {number} */(accountIndex);
     if(index>=keyStrings.length || !keyStrings[index]) {
       throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ACCOUNT_BINDING_INVALID');
     }
