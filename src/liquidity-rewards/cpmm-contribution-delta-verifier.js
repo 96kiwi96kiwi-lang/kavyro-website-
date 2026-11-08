@@ -84,7 +84,14 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
       throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ACCOUNT_BINDING_INVALID');
     }
     const mintValue=x.mint, ownerValue=x.owner;
-    const mint=str(mintValue), owner=str(ownerValue), tokenAmount=amount(x.uiTokenAmount);
+    let uiTokenAmount;
+    try {
+      const descriptor=Object.getOwnPropertyDescriptor(x,'uiTokenAmount');
+      uiTokenAmount=descriptor && 'value' in descriptor ? descriptor.value : undefined;
+    } catch {
+      uiTokenAmount=undefined;
+    }
+    const mint=str(mintValue), owner=str(ownerValue), tokenAmount=amount(uiTokenAmount);
     if(!canonicalIdentity(mintValue)||!canonicalIdentity(ownerValue)) throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_IDENTITY_INVALID');
     if(tokenAmount===null) throw new Error('CPMM_CONTRIBUTION_TOKEN_AMOUNT_INVALID');
     return {index,mint,owner,amount:tokenAmount};
