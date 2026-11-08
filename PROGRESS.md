@@ -1,5 +1,22 @@
 # Progress
 
+## 2026-11-09
+
+### Hotovo
+- PR #56 now requires finalized transaction and metadata containers to be own data properties.
+- Accessor-backed `transaction` or `meta` evidence fails closed without invoking untrusted getters.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 323/323 tests passed.
+
+### Rozpracováno
+- Draft PR #56 remains read-only and review-only.
+
+### Bloky
+- Payout remains disabled until the official Raydium CPMM pool is independently verified on-chain and explicitly approved.
+- GitHub Actions runner startup remains unavailable; live proof still requires two organizationally independent RPC operators.
+
+### Další priorita
+- Re-run final-head CI when runners are available, then continue the smallest fail-closed provenance boundary without adding an unverified pool ID.
+
 ## 2026-11-08
 
 ### Hotovo
