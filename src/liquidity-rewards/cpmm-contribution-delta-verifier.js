@@ -74,8 +74,12 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   });
   if (!keyStrings.includes(wallet) || !keyStrings.includes(poolId) || !keyStrings.includes(program)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_BINDING_MISMATCH');
 
-  const pre=Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : [];
-  const post=Array.isArray(meta.postTokenBalances) ? meta.postTokenBalances : [];
+  const preValue=ownDataValue(meta,'preTokenBalances');
+  const postValue=ownDataValue(meta,'postTokenBalances');
+  if (!Array.isArray(preValue) || !Array.isArray(postValue)) {
+    throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCES_INVALID');
+  }
+  const pre=preValue, post=postValue;
   /** @param {unknown} b @returns {NormalizedBalance} */
   const norm=(b)=>{
     if(!b||typeof b!=='object') throw new Error('CPMM_CONTRIBUTION_TOKEN_BALANCE_ENTRY_INVALID');
