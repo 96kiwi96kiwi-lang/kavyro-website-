@@ -60,8 +60,10 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
       program !== RAYDIUM_CPMM_PROGRAM_ID) {
     throw new Error('CPMM_CONTRIBUTION_IDENTITY_INVALID');
   }
-  if (!e.transaction || typeof e.transaction !== 'object' || !e.meta || typeof e.meta !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
-  const tx=/** @type {Record<string,unknown>} */(e.transaction), meta=/** @type {Record<string,unknown>} */(e.meta);
+  const transactionValue=ownDataValue(e,'transaction');
+  const metaValue=ownDataValue(e,'meta');
+  if (!transactionValue || typeof transactionValue !== 'object' || !metaValue || typeof metaValue !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
+  const tx=/** @type {Record<string,unknown>} */(transactionValue), meta=/** @type {Record<string,unknown>} */(metaValue);
   const stableEvidence=Object.freeze({exists,finalized,signature,slot,blockTimeSeconds,transaction:tx,meta});
   const message=tx.message;
   if (!message || typeof message !== 'object') throw new Error('CPMM_CONTRIBUTION_MESSAGE_INVALID');
