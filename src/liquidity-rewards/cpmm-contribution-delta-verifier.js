@@ -16,16 +16,20 @@ const canonicalIdentity = (v) => typeof v === 'string' && v.length > 0 && v === 
     return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
   });
 
+/** @param {unknown} v @param {PropertyKey} key */
+function ownDataValue(v,key) {
+  if (!v || typeof v !== 'object') return null;
+  try {
+    const descriptor=Object.getOwnPropertyDescriptor(v,key);
+    return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** @param {unknown} v */
 function amount(v) {
-  if (!v || typeof v !== 'object') return null;
-  let descriptor;
-  try {
-    descriptor=Object.getOwnPropertyDescriptor(v,'amount');
-  } catch {
-    return null;
-  }
-  const raw=descriptor && 'value' in descriptor ? descriptor.value : undefined;
+  const raw=ownDataValue(v,'amount');
   if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null;
   return BigInt(raw);
 }
