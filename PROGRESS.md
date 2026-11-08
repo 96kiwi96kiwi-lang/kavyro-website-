@@ -33,7 +33,8 @@
 - Finalized token-balance mint and owner identities must also remain canonical; whitespace or control-character aliases fail closed before contributing deltas.
 - Token amount evidence must expose an own data value; accessor-backed amounts fail closed without invoking untrusted getters.
 - Throwing token-amount descriptor traps are contained and normalized without invoking proxy membership traps.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 319/319 tests passed.
+- Token-balance `uiTokenAmount` containers must be own data properties; accessor-backed containers fail closed without invoking their getters.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 320/320 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
