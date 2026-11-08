@@ -1,6 +1,6 @@
 # Progress
 
-## 2026-11-07
+## 2026-11-08
 
 ### Hotovo
 - PR #56 validates untrusted Solana RPC stream read results before accessing `done` or `value`.
@@ -30,7 +30,8 @@
 - Standalone delta identity validation also rejects embedded ASCII control characters instead of treating them as an alternate scope.
 - The expected Raydium CPMM program id must also remain canonical; padded or control-character aliases fail closed.
 - Finalized transaction account keys must remain canonical; padded or control-character wallet and program aliases fail closed before balance-delta evaluation.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 316/316 tests passed.
+- Finalized token-balance mint and owner identities must also remain canonical; whitespace or control-character aliases fail closed before contributing deltas.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 317/317 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
