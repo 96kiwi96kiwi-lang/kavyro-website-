@@ -32,6 +32,7 @@ export function composeContributionEntitlementEvidence(receiptValue, ownershipVa
     contributedKvroBaseUnits: receipt.contributedKvroBaseUnits,
     ownershipEvidenceId: ownership.ownershipEvidenceId,
     contributionEvidenceId: receipt.contributionEvidenceId,
+    rpcProviders: receipt.rpcProviders,
     payoutAuthorized: false,
   });
 }

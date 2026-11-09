@@ -13,6 +13,7 @@ const receipt = {
   kvroMint: KAVYRO_MINT,
   quoteMint: WRAPPED_SOL_MINT,
   kvroSourceOwner: 'W',
+  rpcProviders: Object.freeze({ transactionOperator: 'primary-rpc', statusOperator: 'status-rpc' }),
   kvroTransferredBaseUnits: 500n,
   lpMintedBaseUnits: 20n,
   slot: 100,

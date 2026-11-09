@@ -1,0 +1,200 @@
+/*
+  Readable color tokens (WCAG 2.1 AA).
+
+  Body text uses --color-text and --color-text-muted. Both stay at a contrast
+  ratio of at least 4.5:1 on --color-bg and on --color-surface. Links, the
+  call-to-action, borders, and focus rings use the same tokens, so text on
+  the background it touches stays at 4.5:1 and adjacent UI colors (button
+  fill, border, focus ring) stay at 3:1.
+
+  To adjust a color, change its custom property in :root for light mode or in
+  the prefers-color-scheme: dark block for dark mode. Keep hex values only on
+  those tokens, then run npm test. src/styles.contrast.test.js fails if a
+  text pair drops below 4.5:1 or an adjacent UI pair drops below 3:1.
+*/
+
+:root {
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-surface: #f3f6fa;
+  --color-text: #0b1f33;
+  --color-text-muted: #3d4f63;
+  --color-link: #0a4f86;
+  --color-button-bg: #0b1f33;
+  --color-button-text: #ffffff;
+  --color-border: #5b6d80;
+  --color-focus: #0b1f33;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #0b1f33;
+    --color-surface: #143049;
+    --color-text: #f4f7fb;
+    --color-text-muted: #d5deea;
+    --color-link: #ffbf47;
+    --color-button-bg: #ffbf47;
+    --color-button-text: #0b1f33;
+    --color-border: #b7c6d6;
+    --color-focus: #ffbf47;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.site-header,
+main {
+  width: min(40rem, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-mark {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+a:visited {
+  color: var(--color-link);
+}
+
+h1,
+h2,
+.lede,
+.note,
+.site-mark {
+  color: var(--color-text);
+}
+
+.lede,
+.note {
+  color: var(--color-text-muted);
+}
+
+h1,
+h2 {
+  line-height: 1.25;
+}
+
+.hero {
+  padding-block: 1.5rem 1.25rem;
+}
+
+.panel {
+  margin-block: 0 2rem;
+  padding: 1rem 1.15rem;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+code {
+  padding: 0.05em 0.35em;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-block-start: 0.25rem;
+  padding: 0.45rem 0.95rem;
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 2px solid var(--color-button-bg);
+  border-radius: 0.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button:visited {
+  color: var(--color-button-text);
+}
+
+a:focus,
+a:focus-visible,
+.button:focus,
+.button:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/*
+  The skip link stays in normal flow at every viewport, including a 320px
+  phone, so it is not clipped, off-screen, or hidden until focus. The focus
+  ring uses the same contrast token as other controls and is offset onto the
+  page background, where that token stays at 3:1 in light and dark mode.
+*/
+.skip-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(40rem, calc(100% - 2rem));
+  min-height: 2.75rem;
+  margin: 0.75rem auto 0;
+  padding: 0.45rem 0.95rem;
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+  border-radius: 0.25rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.skip-link:visited {
+  color: var(--color-button-text);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+}
+
+main:focus {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
+}

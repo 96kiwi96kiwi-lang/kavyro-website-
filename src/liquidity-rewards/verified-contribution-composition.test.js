@@ -6,7 +6,7 @@ import { RAYDIUM_CPMM_PROGRAM_ID } from './raydium-cpmm-pool-reader.js';
 import { SPL_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from './solana-token-account-reader.js';
 
 const request={signature:'SIG',wallet:'W',poolId:'P',tokenAccount:'TA'};
-const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',poolContextSlot:100,tokenAccountContextSlot:101};
+const ownership={verified:true,evidenceKind:'CURRENT_CPMM_LP_OWNERSHIP',poolType:'RAYDIUM_CPMM',wallet:'W',poolId:'P',tokenAccount:'TA',lpMint:'LP',lpAmountBaseUnits:25n,poolContextSlot:1000,tokenAccountContextSlot:1001,contributionAmountVerified:false,payoutAuthorized:false};
 
 /** @param {Record<string, unknown>} [overrides] */
 function deps(overrides={}) {
@@ -26,6 +26,23 @@ test('production composition fails closed when ownership identity is not verifie
     {...ownership,tokenAccount:'OTHER'},
     {...ownership,verified:false},
     {...ownership,evidenceKind:'CALLER_SUPPLIED'},
+    {...ownership,poolType:'RAYDIUM_CLMM'},
+    {...ownership,poolType:undefined},
+    {...ownership,lpMint:' LP'},
+    {...ownership,lpMint:'LP\u0000'},
+    {...ownership,lpMint:{attackerControlled:true}},
+  ]) {
+    const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
+    await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_EVIDENCE_REQUIRED/);
+  }
+});
+
+test('current ownership evidence cannot claim contribution or payout authority',async()=>{
+  for (const bad of [
+    {...ownership,contributionAmountVerified:true},
+    {...ownership,contributionAmountVerified:undefined},
+    {...ownership,payoutAuthorized:true},
+    {...ownership,payoutAuthorized:undefined},
   ]) {
     const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
     await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_EVIDENCE_REQUIRED/);
@@ -50,6 +67,45 @@ test('caller cannot supply LP mint, contribution amount or proof flags through r
   assert.deepEqual(seen,{wallet:'W',poolId:'P',tokenAccount:'TA'});
 });
 
+test('noncanonical contribution identities fail before verifier or transaction reads',async()=>{
+ let ownershipReads=0;let transactionReads=0;
+ const composition=createVerifiedContributionComposition(deps({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>{ownershipReads+=1;return ownership;}},
+  transactionReader:{readFinalizedTransaction:async()=>{transactionReads+=1;return finalizedTx;}},
+ }));
+ for (const bad of [
+  {...request,signature:' SIG'},
+  {...request,wallet:'W '},
+  {...request,poolId:'P\u0000'},
+  {...request,tokenAccount:'\tTA'},
+ ]) {
+  await assert.rejects(()=>composition.verify(bad),/VERIFIED_CONTRIBUTION_REQUEST_INVALID/);
+ }
+ assert.equal(ownershipReads,0);
+ assert.equal(transactionReads,0);
+});
+
+test('validated request identities cannot be rewritten while ownership verification is pending',async()=>{
+ const mutableRequest={...request};
+ let transactionSignature;
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>{
+   mutableRequest.signature='ATTACKER';
+   mutableRequest.wallet='ATTACKER';
+   mutableRequest.poolId='ATTACKER';
+   mutableRequest.tokenAccount='ATTACKER';
+   return ownership;
+  }},
+  transactionReader:{readFinalizedTransaction:async(signature)=>{transactionSignature=signature;return finalizedTx;}},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ const result=await composition.verify(mutableRequest);
+ assert.equal(transactionSignature,'SIG');
+ assert.equal(result.wallet,'W');
+ assert.equal(result.poolId,'P');
+ assert.equal(result.positionId,'TA');
+});
+
 test('composition exposes read-only capabilities only',()=>{
   const composition=createVerifiedContributionComposition(deps());
   assert.deepEqual(composition.capabilities,{read:true,buildTransaction:false,signTransaction:false,sendTransaction:false});
@@ -60,7 +116,7 @@ const depositData='HJDJa2VrXJbNUhAavrZaXUuTxL8QP3r132EQwv4VAgUX';
 const depositAccounts=['W','AUTH','P','TA','KVRO_SOURCE','QUOTE_SOURCE','V0','V1',SPL_TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID,KAVYRO_MINT,'So11111111111111111111111111111111111111112','LP'];
 /** @param {number} accountIndex @param {string} mint @param {string} owner @param {string|number|bigint} amount */
 const bal=(accountIndex,mint,owner,amount)=>({accountIndex,mint,owner,uiTokenAmount:{amount:String(amount),decimals:0,uiAmount:null,uiAmountString:String(amount)}});
-const finalizedTx={exists:true,finalized:true,signature:'SIG',slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
+const finalizedTx={exists:true,finalized:true,signature:'SIG',providers:Object.freeze({transactionOperator:'primary-rpc',statusOperator:'status-rpc'}),slot:900,blockTimeSeconds:1000,transaction:{message:{accountKeys:[{pubkey:'W',signer:true,writable:true},'KVRO_SOURCE','TA','P',RAYDIUM_CPMM_PROGRAM_ID],instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:depositAccounts,data:depositData}]}},meta:{preTokenBalances:[bal(1,KAVYRO_MINT,'W',1000),bal(2,'LP','W',5)],postTokenBalances:[bal(1,KAVYRO_MINT,'W',700),bal(2,'LP','W',25)]}};
 
 test('positive composition binds verifier provenance, signature, wallet, pool, LP mint, LP position and historical KVRO amount',async()=>{
  let ownershipRequest;let transactionSignature;
@@ -79,10 +135,49 @@ test('positive composition binds verifier provenance, signature, wallet, pool, L
  assert.equal(result.positionId,'TA');
  assert.equal(result.contributedKvroBaseUnits,300n);
  assert.equal(result.contributionEvidenceId,'SIG:P:W');
- assert.equal(result.ownershipEvidenceId,'TA:100:101');
+ assert.equal(result.ownershipEvidenceId,'["W","P","LP","TA",1000,1001]');
+ assert.deepEqual(result.rpcProviders,{transactionOperator:'primary-rpc',statusOperator:'status-rpc'});
  assert.equal(result.payoutAuthorized,false);
 });
 
+
+test('validated ownership facts cannot be rewritten while finalized RPC evidence is pending',async()=>{
+ const mutableOwnership={...ownership};
+ const composition=createVerifiedContributionComposition({
+  ownershipVerifier:{verifyCurrentOwnership:async()=>mutableOwnership},
+  transactionReader:{readFinalizedTransaction:async()=>{
+   mutableOwnership.wallet='ATTACKER';
+   mutableOwnership.poolId='ATTACKER';
+   mutableOwnership.tokenAccount='ATTACKER';
+   mutableOwnership.lpMint='ATTACKER';
+   mutableOwnership.poolContextSlot=1;
+   mutableOwnership.tokenAccountContextSlot=1;
+   return finalizedTx;
+  }},
+  nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+ });
+ const result=await composition.verify(request);
+ assert.equal(result.wallet,'W');
+ assert.equal(result.poolId,'P');
+ assert.equal(result.positionId,'TA');
+ assert.equal(result.lpMint,'LP');
+ assert.equal(result.ownershipEvidenceId,'["W","P","LP","TA",1000,1001]');
+});
+
+test('fails closed when independent RPC operator provenance is missing or not independent',async()=>{
+ for(const providers of [
+  undefined,
+  {transactionOperator:'same-rpc',statusOperator:'same-rpc'},
+  {transactionOperator:'Primary RPC',statusOperator:'status-rpc'},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>ownership},
+   transactionReader:{readFinalizedTransaction:async()=>({...finalizedTx,providers})},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(()=>composition.verify(request),/RPC_PROVENANCE_REQUIRED/);
+ }
+});
 
 test('fails closed when finalized evidence signature differs from the requested signature',async()=>{
  const composition=createVerifiedContributionComposition({
@@ -102,6 +197,31 @@ test('fails closed when verifier-owned LP provenance slots are missing or invali
  ]) {
   const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
   await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_PROVENANCE_REQUIRED/);
+ }
+});
+
+test('fails closed unless verifier-owned current LP balance is positive bigint',async()=>{
+ for (const lpAmountBaseUnits of [undefined, 0n, -1n, 25, '25']) {
+  const bad={...ownership,lpAmountBaseUnits};
+  const composition=createVerifiedContributionComposition(deps({ownershipVerifier:{verifyCurrentOwnership:async()=>bad}}));
+  await assert.rejects(()=>composition.verify(request),/VERIFIER_OWNED_LP_BALANCE_REQUIRED/);
+ }
+});
+
+test('fails closed when current ownership evidence predates the finalized contribution',async()=>{
+ for (const bad of [
+  {...ownership,poolContextSlot:899},
+  {...ownership,tokenAccountContextSlot:899},
+ ]) {
+  const composition=createVerifiedContributionComposition({
+   ownershipVerifier:{verifyCurrentOwnership:async()=>bad},
+   transactionReader:{readFinalizedTransaction:async()=>finalizedTx},
+   nowSeconds:()=>1010,maxReceiptAgeSeconds:60,
+  });
+  await assert.rejects(
+   ()=>composition.verify(request),
+   /VERIFIER_OWNED_LP_PROVENANCE_PRECEDES_CONTRIBUTION/,
+  );
  }
 });
 

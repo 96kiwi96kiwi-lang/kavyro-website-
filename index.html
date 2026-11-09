@@ -4,52 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KAVYRO</title>
-  <style>
-    body {
-      margin: 0;
-      background: #ffffff;
-      color: #1a1a1a;
-      font-family: system-ui, sans-serif;
-      line-height: 1.5;
-    }
-
-    .skip-link {
-      display: inline-block;
-      margin: 0.75rem 1rem 0;
-      padding: 0.5rem 0.75rem;
-      background: #0b1f33;
-      color: #ffffff;
-      font-weight: 700;
-      text-decoration: underline;
-      text-underline-offset: 0.15em;
-    }
-
-    .skip-link:focus,
-    .skip-link:focus-visible {
-      outline: 3px solid #0b1f33;
-      outline-offset: 3px;
-      background: #ffbf47;
-      color: #0b1f33;
-    }
-
-    main:focus {
-      outline: 3px solid #0b1f33;
-      outline-offset: 4px;
-    }
-
-    header,
-    main {
-      padding: 0 1rem 1rem;
-    }
-
-    nav a {
-      margin-right: 1rem;
-    }
-  </style>
+  <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header>
+  <header class="site-header">
+    <p class="site-mark">KAVYRO</p>
     <nav aria-label="Primary">
       <a href="#about">About</a>
       <a href="#liquidity-rewards">Liquidity rewards</a>
@@ -57,15 +17,16 @@
   </header>
   <!-- tabindex="-1" lets activating the skip link move keyboard focus into the main content. -->
   <main id="main" tabindex="-1">
-    <h1>KAVYRO</h1>
-    <section id="about">
-      <h2>About</h2>
-      <p>Repository for KAVYRO development.</p>
+    <section class="hero" id="about">
+      <h1>KAVYRO</h1>
+      <p class="lede">Repository for KAVYRO development.</p>
       <p>Official token mint: <code>8KuWwmApUWyVBVraBdhknQwRuanw2qUwXzAJorqMAHvE</code></p>
+      <a class="button" href="#liquidity-rewards">Read the safety notes</a>
     </section>
-    <section id="liquidity-rewards">
+    <section class="panel" id="liquidity-rewards">
       <h2>Liquidity rewards</h2>
       <p>The liquidity rewards module is a read-only, fail-closed pipeline. Rewards stay disabled until an official Raydium pool is independently verified on-chain.</p>
+      <p class="note">No transaction building, signing, or sending. Payout is never authorized by this module alone.</p>
     </section>
   </main>
 </body>
