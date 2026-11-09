@@ -65,10 +65,12 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (!transactionValue || typeof transactionValue !== 'object' || !metaValue || typeof metaValue !== 'object') throw new Error('CPMM_CONTRIBUTION_TRANSACTION_INVALID');
   const tx=/** @type {Record<string,unknown>} */(transactionValue), meta=/** @type {Record<string,unknown>} */(metaValue);
   const stableEvidence=Object.freeze({exists,finalized,signature,slot,blockTimeSeconds,transaction:tx,meta});
-  const message=tx.message;
+  const message=ownDataValue(tx,'message');
   if (!message || typeof message !== 'object') throw new Error('CPMM_CONTRIBUTION_MESSAGE_INVALID');
   const m=/** @type {Record<string,unknown>} */(message);
-  const keys=Array.isArray(m.accountKeys) ? m.accountKeys : [];
+  const accountKeysValue=ownDataValue(m,'accountKeys');
+  if (!Array.isArray(accountKeysValue)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_KEYS_INVALID');
+  const keys=accountKeysValue;
   const keyStrings=keys.map(k => {
     const value=typeof k === 'string' ? k : (k && typeof k === 'object' && 'pubkey' in k ? k.pubkey : undefined);
     if (!canonicalIdentity(value)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_KEY_INVALID');
