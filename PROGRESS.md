@@ -3,22 +3,22 @@
 ## 2026-11-09
 
 ### Hotovo
-- PR #56 feature expansion is frozen behind `src/liquidity-rewards/PR56_ACCEPTANCE.md`, which separates merge evidence from live payout activation.
-- Parsed account-key `pubkey` values must now be own data properties; accessors and descriptor traps fail closed without invoking getters or membership traps.
-- Transaction message and account-key containers must now be own data properties; accessor-backed evidence fails closed without invoking untrusted getters.
-- PR #56 now requires finalized transaction and metadata containers to be own data properties.
-- Accessor-backed `transaction` or `meta` evidence fails closed without invoking untrusted getters.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 323/323 tests passed.
+- Compared draft PR #56 with `origin/main` `3b31730acd8f0dd23f0fb98877458b62e253a0fb`: the branch already contains that commit, so no merge was required.
+- `7e50a1846bcaf06078de20984a263bb24ab2395e` binds finalized transaction evidence to signature status and fails closed on non-canonical evidence. A transaction signature must be byte-identical 64-byte base58, not merely equal after trimming. Transaction success and signature status require an own `err` of `null`. Deposit instructions and contribution receipts reject padded or control-character pool, LP mint, and KVRO mint aliases instead of trimming them into the canonical mint `8KuWwmApUWyVBVraBdhknQwRuanw2qUwXzAJorqMAHvE`.
+- Parsed account-key `pubkey` values must be own data properties; accessors and descriptor traps fail closed without invoking getters or membership traps.
+- Transaction message, account-key, transaction, and metadata containers must be own data properties.
+- Verified on `7e50a1846bcaf06078de20984a263bb24ab2395e` at 2026-11-09T17:58:51Z before this documentation commit: `npm ci` exit 0, `npm run typecheck` exit 0, `npm test` exit 0 with 333 passed, 0 failed, 0 skipped. The payout gate still returns not authorized.
 
 ### Rozpracováno
-- Draft PR #56 remains read-only and review-only.
+- Draft PR #56 is ready for owner review of the read-only evidence binding. Merge stays on hold.
 
 ### Bloky
-- Payout remains disabled until the official Raydium CPMM pool is independently verified on-chain and explicitly approved.
-- GitHub Actions runner startup remains unavailable; live proof still requires two organizationally independent RPC operators.
+- Payout remains disabled until the official Raydium CPMM pool is independently verified on-chain and the owner explicitly approves activation.
+- GitHub Actions runner startup is billing-locked, so a red Actions run with no test steps is not a test result.
+- Live proof still requires a historical signature bound to the wallet, official pool, LP mint, and canonical KVRO mint, read from two organizationally independent RPC operators.
 
 ### Další priorita
-- Re-run final-head CI when runners are available, then continue the smallest fail-closed provenance boundary without adding an unverified pool ID.
+- Owner review of the signature, finality, pool, LP mint, and evidence-origin binding. Do not enable payout, add a pool id, or treat a runner startup failure as a passing test.
 
 ## 2026-11-08
 
