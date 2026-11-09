@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test src/liquidity-rewards/*.test.js",
+    "test": "node --test src/liquidity-rewards/*.test.js src/styles.contrast.test.js",
     "typecheck": "tsc -p jsconfig.json"
   },
   "devDependencies": {
