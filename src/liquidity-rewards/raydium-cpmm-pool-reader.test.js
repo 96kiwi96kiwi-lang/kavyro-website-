@@ -51,6 +51,11 @@ test('fails closed on wrong owner', async () => {
   await assert.rejects(() => reader.readPoolAccount('pool-candidate'), /owner mismatch/);
 });
 
+test('fails closed when the pool account is executable', async () => {
+  const reader = createRaydiumCpmmPoolReader({ readRawAccount: async () => raw({ executable: true }) });
+  await assert.rejects(() => reader.readPoolAccount('pool-candidate'), /must not be executable/);
+});
+
 test('fails closed on wrong discriminator', async () => {
   const data = Buffer.from(poolData(), 'base64'); data[0] ^= 0xff;
   const reader = createRaydiumCpmmPoolReader({ readRawAccount: async () => raw({ dataBase64: data.toString('base64') }) });

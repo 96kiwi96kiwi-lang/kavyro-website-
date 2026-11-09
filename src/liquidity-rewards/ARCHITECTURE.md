@@ -12,7 +12,7 @@ Raydium discovery is only a source of candidate pool IDs. Discovery is constrain
 
 ### 2. Verification
 
-Every candidate must cross an independent read-only Solana RPC boundary. Verification checks that the account exists at the required commitment, is owned by an explicitly supported Raydium program, has the expected account layout/discriminator, is not executable where a pool state must be data, and decodes to the exact canonical KVRO mint pair. A candidate remains unverified if any check cannot be established. API metadata cannot override an RPC verification failure.
+Every candidate must cross an independent read-only Solana RPC boundary. Verification checks that the account exists at the required commitment, is owned by an explicitly supported Raydium program, has the expected account layout/discriminator, is not executable where a pool state must be data, and decodes to the exact canonical KVRO mint pair. The `getAccountInfo` reader accepts only the JSON-RPC 2.0 result for the request it sent. Account bytes must be canonical base64, and `executable` must be an own boolean property; a missing, inherited, or non-boolean flag is rejected instead of being reported as a non-executable data account. A candidate remains unverified if any check cannot be established. API metadata cannot override an RPC verification failure.
 
 ### 3. Observation
 
