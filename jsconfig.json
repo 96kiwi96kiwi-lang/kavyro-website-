@@ -9,5 +9,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/liquidity-rewards/**/*.js", "src/styles.contrast.test.js"]
+  "include": ["src/liquidity-rewards/**/*.js", "src/styles.contrast.test.js", "index.test.js"]
 }

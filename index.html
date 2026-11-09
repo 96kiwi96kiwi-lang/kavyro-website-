@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <p class="site-mark">KAVYRO</p>
     <nav aria-label="Primary">
@@ -14,7 +15,8 @@
       <a href="#liquidity-rewards">Liquidity rewards</a>
     </nav>
   </header>
-  <main id="main">
+  <!-- tabindex="-1" lets activating the skip link move keyboard focus into the main content. -->
+  <main id="main" tabindex="-1">
     <section class="hero" id="about">
       <h1>KAVYRO</h1>
       <p class="lede">Repository for KAVYRO development.</p>

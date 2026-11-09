@@ -1,5 +1,47 @@
 # Progress
 
+## 2026-11-09T23:18:32Z
+
+### Datum a čas
+
+2026-11-09T23:18:32Z. Verification of merge `053949fcf19fad5eca563e2efa5d1eb4385e058e` on this VM (Node v22.23.4, npm 10.9.9, Google Chrome 156.0.8078.47). This entry is the documentation commit that follows that run.
+
+### Aktuální stav
+
+PR #61 merges current `main` `3fb61ef888c79bf70e2078cfa58d11f23583c4b0` into `cursor/skip-to-content-anchor-10a3` with a merge commit. Parents are `27e114398b826fbdbd9c956d7523d42fd4d67854` and `3fb61ef888c79bf70e2078cfa58d11f23583c4b0`. The page keeps the contrast stylesheet and adds a visible "Skip to content" link as the first control. Activating it moves keyboard and pointer focus to `<main id="main" tabindex="-1">`. The canonical mint remains `8KuWwmApUWyVBVraBdhknQwRuanw2qUwXzAJorqMAHvE`. Payout stays disabled. No signing, private keys, token forwarding, or pool id was added.
+
+### Dokončené změny
+
+- Resolved the `index.html`, `package.json`, and `jsconfig.json` conflicts by keeping main's tokenized stylesheet and test list, and by moving the skip link into that stylesheet.
+- The skip link stays in normal flow at every viewport, uses the button and focus contrast tokens, and keeps a 3px solid focus ring offset onto the page background in light and dark mode.
+- `index.test.js` checks the link order and, in Chrome, keyboard and pointer activation at 320×568 and 1280×800 in both color schemes.
+
+### Rozpracované funkce
+
+- PR #61 is ready for owner review. Payout activation is not part of this branch.
+
+### Testování
+
+Tested SHA: `053949fcf19fad5eca563e2efa5d1eb4385e058e`.
+
+- `npm ci --no-audit --no-fund` — PASS, exit 0.
+- `npm run typecheck` (`tsc -p jsconfig.json`) — PASS, exit 0.
+- `npm test` — PASS, exit 0, 356 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo. That run includes the liquidity-rewards tests, the contrast tests, and the skip-link phone and desktop checks.
+- `npm run lint` — NOT RUN. `package.json` has no `lint` script.
+- `npm run build` — NOT RUN. `package.json` has no `build` script. `index.html` is static.
+- GitHub Actions — BLOCKED by the account billing lock. A runner startup failure is not a test result.
+- Manual Chrome check on `http://127.0.0.1:8765/index.html`: on a desktop window, Tab focused "Skip to content" and Enter moved focus to `#main`. On a narrow window, the same link stayed on screen and Enter again targeted `#main`.
+
+### Blokace
+
+- Payout remains disabled until an official Raydium CPMM pool is independently verified on-chain and the owner explicitly approves activation.
+- Live proof still needs a historical signature bound to the wallet, official pool, LP mint, and canonical KVRO mint, read from two organizationally independent RPC operators.
+- GitHub Actions cannot execute until the billing lock is cleared.
+
+### Další priorita
+
+Owner review of PR #61. Do not enable payout, add a pool id, or treat a GitHub Actions startup failure as a passing test.
+
 ## 2026-11-09T21:55:26Z
 
 ### Datum a čas

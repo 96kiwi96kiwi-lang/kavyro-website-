@@ -158,3 +158,43 @@ a:focus-visible,
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
+
+/*
+  The skip link stays in normal flow at every viewport, including a 320px
+  phone, so it is not clipped, off-screen, or hidden until focus. The focus
+  ring uses the same contrast token as other controls and is offset onto the
+  page background, where that token stays at 3:1 in light and dark mode.
+*/
+.skip-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(40rem, calc(100% - 2rem));
+  min-height: 2.75rem;
+  margin: 0.75rem auto 0;
+  padding: 0.45rem 0.95rem;
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+  border-radius: 0.25rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.skip-link:visited {
+  color: var(--color-button-text);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
+}
+
+main:focus {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
+}
