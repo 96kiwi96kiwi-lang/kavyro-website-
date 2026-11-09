@@ -3,6 +3,7 @@
 ## 2026-11-09
 
 ### Hotovo
+- PR #56 feature expansion is frozen behind `src/liquidity-rewards/PR56_ACCEPTANCE.md`, which separates merge evidence from live payout activation.
 - Parsed account-key `pubkey` values must now be own data properties; accessors and descriptor traps fail closed without invoking getters or membership traps.
 - Transaction message and account-key containers must now be own data properties; accessor-backed evidence fails closed without invoking untrusted getters.
 - PR #56 now requires finalized transaction and metadata containers to be own data properties.
@@ -66,4 +67,4 @@
 - GitHub Actions runner startup is currently blocked before test execution.
 
 ### Další priorita
-- Re-run final-head CI when Actions runners are available, then continue the smallest fail-closed provenance gap without adding an unverified pool ID.
+- Complete the PR #56 acceptance checklist on the final head: visible passing CI steps and focused security review; do not add further feature scope.
