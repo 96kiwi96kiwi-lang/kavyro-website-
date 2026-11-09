@@ -3,6 +3,7 @@
 ## 2026-11-09
 
 ### Hotovo
+- Parsed account-key `pubkey` values must now be own data properties; accessors and descriptor traps fail closed without invoking getters or membership traps.
 - Transaction message and account-key containers must now be own data properties; accessor-backed evidence fails closed without invoking untrusted getters.
 - PR #56 now requires finalized transaction and metadata containers to be own data properties.
 - Accessor-backed `transaction` or `meta` evidence fails closed without invoking untrusted getters.
@@ -54,7 +55,7 @@
 - Token-balance `uiTokenAmount` containers must be own data properties; accessor-backed containers fail closed without invoking their getters.
 - Token-balance account index, mint, and owner fields are now snapshotted only from own data properties; accessors cannot rewrite or interrupt delta verification.
 - The pre/post token-balance arrays themselves must now be own data properties; accessor-backed arrays fail closed without invoking untrusted getters.
-- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 324/324 tests passed.
+- Final-head verification ran with `npm ci`, `npm run typecheck`, and `npm test`: 325/325 tests passed.
 
 ### Rozpracováno
 - Draft PR #56 remains review-only and read-only; it cannot build, sign, send, or authorize payout transactions.
