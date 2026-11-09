@@ -1,5 +1,45 @@
 # Progress
 
+## 2026-11-09T21:55:26Z
+
+### Datum a čas
+
+2026-11-09T21:55:26Z. Verification of implementation `b6d2c148d407d066a11f69257f20dee629627cd4` on this VM (Node v22.23.4, npm 10.9.9). This entry is the documentation commit that follows that run.
+
+### Aktuální stav
+
+PR #58 contains current `main` (`f6182c4b14d0ce04bd569f6479dee366834eb3bf`), including the merged signature-status binding from PR #56 and the contrast update from PR #62. `getAccountInfo` still fails closed on non-canonical account evidence. Finalized contribution reads still require matching `getTransaction` evidence and `getSignatureStatuses` from two independent operators. The two evidence types compose only when each reader accepts its own response and the account context slots are at or after the signature-status-bound transaction slot. Rewards stay disabled. The canonical mint remains `8KuWwmApUWyVBVraBdhknQwRuanw2qUwXzAJorqMAHvE`. No payout, signing, or live RPC write was added.
+
+### Dokončené změny
+
+- `0475fa2` merges `origin/main` into `cursor/fail-closed-account-rpc-evidence-ce9e` with a merge commit. There were no textual conflicts.
+- `b6d2c148d407d066a11f69257f20dee629627cd4` adds regression coverage for the interaction: canonical composition stays payout-disabled; a finalized signature status cannot repair missing, non-boolean, or swapped account evidence; canonical account bytes cannot replace signature finality; an account slot before the bound transaction slot is rejected; a null account is not invented from signature status.
+
+### Rozpracované funkce
+
+- PR #58 is ready for owner review. Payout activation is not part of this branch.
+
+### Testování
+
+Tested SHA: `b6d2c148d407d066a11f69257f20dee629627cd4`.
+
+- `npm ci --no-audit --no-fund` — PASS, exit 0.
+- `npm run typecheck` (`tsc -p jsconfig.json`) — PASS, exit 0.
+- `npm test` — PASS, exit 0, 350 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo.
+- `npm run lint` — NOT RUN. `package.json` has no `lint` script.
+- `npm run build` — NOT RUN. `package.json` has no `build` script. `index.html` is static.
+- GitHub Actions — BLOCKED by the account billing lock. A runner startup failure is not a test result.
+
+### Blokace
+
+- Payout remains disabled until an official Raydium CPMM pool is independently verified on-chain and the owner explicitly approves activation.
+- Live proof still needs a historical signature bound to the wallet, official pool, LP mint, and canonical KVRO mint, read from two organizationally independent RPC operators.
+- GitHub Actions cannot execute until the billing lock is cleared.
+
+### Další priorita
+
+Owner review of PR #58. Do not enable payout, add a pool id, or treat a GitHub Actions startup failure as a passing test.
+
 ## 2026-11-09
 
 ### Hotovo
