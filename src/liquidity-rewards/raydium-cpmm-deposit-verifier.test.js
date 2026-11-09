@@ -17,3 +17,19 @@ test('rejects a non-WSOL quote mint and wrong token program accounts',()=>{
 });
 test('rejects ambiguous duplicate canonical mint positions',()=>{const a=[...accounts];a[11]=KAVYRO_MINT;assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:RAYDIUM_CPMM_PROGRAM_ID,accounts:a,data}]}}},{wallet,poolId:pool,lpMint:lp}),/KVRO_MINT/);});
 test('rejects wrong program and non-finalized provenance',()=>{assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,transaction:{message:{instructions:[{programId:'OTHER',accounts,data}]}}},{wallet,poolId:pool,lpMint:lp}),/INSTRUCTION_REQUIRED/);assert.throws(()=>verifyRaydiumCpmmDepositInstruction({...tx,finalized:false},{wallet,poolId:pool,lpMint:lp}),/PROVENANCE/);});
+test('rejects non-canonical pool, LP mint, and KVRO mint deposit accounts',()=>{
+ for (const [index, value] of [[2, ` ${pool}`], [12, `${lp}\n`], [10, ` ${KAVYRO_MINT}`], [10, `${KAVYRO_MINT}\u0000`]]) {
+  const tainted = [...accounts];
+  tainted[/** @type {number} */ (index)] = /** @type {string} */ (value);
+  assert.throws(() => verifyRaydiumCpmmDepositInstruction({ ...tx, transaction: { message: { instructions: [{ programId: RAYDIUM_CPMM_PROGRAM_ID, accounts: tainted, data }] } } }, { wallet, poolId: pool, lpMint: lp }), /ACCOUNT_BINDING_MISMATCH/);
+ }
+ assert.throws(() => verifyRaydiumCpmmDepositInstruction({ ...tx, transaction: { message: { instructions: [{ programId: ` ${RAYDIUM_CPMM_PROGRAM_ID}`, accounts, data }] } } }, { wallet, poolId: pool, lpMint: lp }), /INSTRUCTION_REQUIRED/);
+ assert.throws(() => verifyRaydiumCpmmDepositInstruction(tx, { wallet: ' W', poolId: pool, lpMint: lp }), /IDENTITY_REQUIRED/);
+});
+test('rejects accessor-backed deposit accounts without invoking getters',()=>{
+ let reads = 0;
+ const tainted = [...accounts];
+ tainted[2] = /** @type {any} */ (Object.defineProperty({}, 'pubkey', { get() { reads += 1; return pool; } }));
+ assert.throws(() => verifyRaydiumCpmmDepositInstruction({ ...tx, transaction: { message: { instructions: [{ programId: RAYDIUM_CPMM_PROGRAM_ID, accounts: tainted, data }] } } }, { wallet, poolId: pool, lpMint: lp }), /ACCOUNT_BINDING_MISMATCH/);
+ assert.equal(reads, 0);
+});

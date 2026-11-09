@@ -26,6 +26,23 @@ function isEncodedSolanaSignature(value) {
   return leadingZeroBytes + nonZeroBytes === 64;
 }
 
+/**
+ * Read one own data property. Accessors and descriptor traps are treated as
+ * missing so untrusted RPC objects cannot supply finality through getters.
+ * @param {unknown} value
+ * @param {PropertyKey} key
+ * @returns {unknown}
+ */
+function ownDataValue(value, key) {
+  if (!value || typeof value !== 'object') return undefined;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
@@ -489,7 +506,7 @@ export function createSolanaFinalizedTransactionReader(options) {
             const absenceContext = absenceRecord.context;
             const absenceValue = absenceRecord.value;
             const absenceContextSlot = absenceContext && typeof absenceContext === 'object'
-              ? /** @type {Record<string, unknown>} */ (absenceContext).slot
+              ? ownDataValue(absenceContext, 'slot')
               : undefined;
             if (!Number.isSafeInteger(absenceContextSlot) ||
                 /** @type {number} */ (absenceContextSlot) < 0 ||
@@ -519,11 +536,24 @@ export function createSolanaFinalizedTransactionReader(options) {
         throw new Error('Malformed Solana transaction response');
       }
       const meta = /** @type {Record<string, unknown>} */ (r.meta);
-      if (meta.err != null) throw new Error('Solana transaction failed');
+      // Success is only an own err of null. A missing error field is malformed.
+      const transactionErr = ownDataValue(meta, 'err');
+      if (transactionErr !== null) {
+        throw new Error(transactionErr === undefined
+          ? 'Malformed Solana transaction response'
+          : 'Solana transaction failed');
+      }
       const transaction = /** @type {Record<string, unknown>} */ (r.transaction);
-      const signatures = Array.isArray(transaction.signatures) ? transaction.signatures : [];
-      const matchingSignatures = signatures.filter((value) => clean(value) === exactSignature);
-      if (clean(signatures[0]) !== exactSignature || matchingSignatures.length !== 1) {
+      // Bind the requested signature byte-for-byte. Trimming would accept a different id.
+      const signatures = ownDataValue(transaction, 'signatures');
+      const primarySignature = Array.isArray(signatures) ? signatures[0] : undefined;
+      const matchingSignatures = Array.isArray(signatures)
+        ? signatures.filter((value) => value === exactSignature)
+        : [];
+      if (!Array.isArray(signatures) ||
+          signatures.some((value) => typeof value !== 'string' || !isEncodedSolanaSignature(value)) ||
+          primarySignature !== exactSignature ||
+          matchingSignatures.length !== 1) {
         throw new Error('Solana transaction primary signature mismatch');
       }
 
@@ -561,20 +591,24 @@ export function createSolanaFinalizedTransactionReader(options) {
         if (!context || typeof context !== 'object') {
           throw new Error(`${source} Solana finalized signature status context required`);
         }
-        const contextSlot = /** @type {Record<string, unknown>} */ (context).slot;
+        const contextSlot = ownDataValue(context, 'slot');
         const statusValue = statusRecord.value;
         if (!Array.isArray(statusValue) || statusValue.length !== 1 ||
             !statusValue[0] || typeof statusValue[0] !== 'object') {
           throw new Error(`${source} Solana finalized signature status required`);
         }
-        const status = /** @type {Record<string, unknown>} */ (statusValue[0]);
+        const status = statusValue[0];
+        const statusErr = ownDataValue(status, 'err');
+        const confirmationStatus = ownDataValue(status, 'confirmationStatus');
+        const confirmations = ownDataValue(status, 'confirmations');
+        const statusSlot = ownDataValue(status, 'slot');
         if (!Number.isSafeInteger(contextSlot) ||
             /** @type {number} */ (contextSlot) < /** @type {number} */ (r.slot) ||
-            status.err != null ||
-            status.confirmationStatus !== 'finalized' ||
-            status.confirmations !== null ||
-            !Number.isSafeInteger(status.slot) ||
-            status.slot !== r.slot) {
+            statusErr !== null ||
+            confirmationStatus !== 'finalized' ||
+            confirmations !== null ||
+            !Number.isSafeInteger(statusSlot) ||
+            statusSlot !== r.slot) {
           throw new Error(`${source} Solana finalized signature status mismatch`);
         }
       }

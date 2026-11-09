@@ -56,6 +56,45 @@ test('fails closed unless two canonical independent RPC operators are preserved'
   }
 });
 
+test('rejects non-canonical signature, pool, LP mint, and KVRO mint evidence', () => {
+  /** @type {Array<[Record<string, unknown>, RegExp]>} */
+  const cases = [
+    [{ ...base, signature: ` ${base.signature}` }, /IDENTITY_INVALID/],
+    [{ ...base, signature: `${base.signature}\n` }, /IDENTITY_INVALID/],
+    [{ ...base, poolId: ` ${base.poolId}` }, /IDENTITY_INVALID/],
+    [{ ...base, poolId: 'TEST_POOL\u0000' }, /IDENTITY_INVALID/],
+    [{ ...base, lpMint: ` ${base.lpMint} ` }, /IDENTITY_INVALID/],
+    [{ ...base, lpMint: 'TEST_LP_MINT\u007f' }, /IDENTITY_INVALID/],
+    [{ ...base, kvroMint: ` ${KAVYRO_MINT}` }, /MINT_MISMATCH/],
+    [{ ...base, kvroMint: `${KAVYRO_MINT}\u0000` }, /MINT_MISMATCH/],
+    [{ ...base, quoteMint: ` ${WRAPPED_SOL_MINT}` }, /MINT_MISMATCH/],
+    [{ ...base, poolType: ' RAYDIUM_CPMM' }, /UNSUPPORTED_POOL_TYPE/],
+    [{ ...base, kvroSourceOwner: ` ${base.wallet}` }, /IDENTITY_INVALID/],
+  ];
+  for (const [input, error] of cases) {
+    assert.throws(() => verifyCpmmContributionReceipt(input), error);
+  }
+});
+
+test('rejects accessor-backed receipt identities without invoking getters', () => {
+  let reads = 0;
+  const input = { ...base };
+  Object.defineProperty(input, 'lpMint', {
+    get() {
+      reads += 1;
+      return base.lpMint;
+    },
+  });
+  Object.defineProperty(input, 'kvroMint', {
+    get() {
+      reads += 1;
+      return KAVYRO_MINT;
+    },
+  });
+  assert.throws(() => verifyCpmmContributionReceipt(input), /IDENTITY_REQUIRED|MINT_MISMATCH/);
+  assert.equal(reads, 0);
+});
+
 test('fails closed on non-finalized, future or stale receipt evidence', () => {
   assert.throws(() => verifyCpmmContributionReceipt({ ...base, finalized: false }), /NOT_FINALIZED/);
   assert.throws(() => verifyCpmmContributionReceipt({ ...base, observedAtSeconds: 999 }), /TRUSTED_TIME_INVALID/);

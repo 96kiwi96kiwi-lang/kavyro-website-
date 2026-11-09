@@ -1389,3 +1389,64 @@ test('fails closed on malformed or errored signature status RPC evidence', async
   }
 });
 
+test('rejects transaction signatures that match only after trimming', async () => {
+  for (const padded of [` ${SIGNATURE}`, `${SIGNATURE}\n`, `${SIGNATURE}\u00a0`]) {
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async (_url, init) => {
+        const request = JSON.parse(init.body);
+        if (request.method === 'getTransaction') {
+          return rpcResponse(init, { result: finalizedTransaction([padded]) });
+        }
+        return rpcResponse(init, { result: finalizedStatusResult() });
+      },
+    });
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /primary signature mismatch/);
+  }
+});
+
+test('rejects transaction evidence that omits the execution error', async () => {
+  const { meta, ...transactionRest } = finalizedTransaction();
+  const { err: _err, ...metaWithoutErr } = meta;
+  const transaction = { ...transactionRest, meta: metaWithoutErr };
+  const reader = createReader({
+    rpcUrl: 'https://rpc.invalid',
+    statusRpcUrl: 'https://status-rpc.invalid',
+    fetchImpl: async (_url, init) => {
+      const request = JSON.parse(init.body);
+      if (request.method === 'getTransaction') {
+        return rpcResponse(init, { result: transaction });
+      }
+      return rpcResponse(init, { result: finalizedStatusResult() });
+    },
+  });
+  await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /Malformed Solana transaction response/);
+});
+
+test('rejects missing or non-canonical signature status fields', async () => {
+  const { err: _err, ...missingErr } = finalizedSignatureStatus();
+  const invalidStatuses = [
+    missingErr,
+    finalizedSignatureStatus({ confirmationStatus: ' finalized' }),
+    finalizedSignatureStatus({ confirmationStatus: 'finalized\n' }),
+    finalizedSignatureStatus({ confirmationStatus: 'Finalized' }),
+    finalizedSignatureStatus({ slot: '123' }),
+  ];
+
+  for (const status of invalidStatuses) {
+    const reader = createReader({
+      rpcUrl: 'https://rpc.invalid',
+      statusRpcUrl: 'https://status-rpc.invalid',
+      fetchImpl: async (_url, init) => {
+        const request = JSON.parse(init.body);
+        if (request.method === 'getTransaction') {
+          return rpcResponse(init, { result: finalizedTransaction() });
+        }
+        return rpcResponse(init, { result: finalizedStatusResult(status) });
+      },
+    });
+    await assert.rejects(() => reader.readFinalizedTransaction(SIGNATURE), /finalized signature status/);
+  }
+});
+
