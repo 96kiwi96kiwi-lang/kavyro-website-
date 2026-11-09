@@ -72,7 +72,7 @@ export function verifyCpmmContributionDeltas(txEvidence, expected) {
   if (!Array.isArray(accountKeysValue)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_KEYS_INVALID');
   const keys=accountKeysValue;
   const keyStrings=keys.map(k => {
-    const value=typeof k === 'string' ? k : (k && typeof k === 'object' && 'pubkey' in k ? k.pubkey : undefined);
+    const value=typeof k === 'string' ? k : ownDataValue(k,'pubkey');
     if (!canonicalIdentity(value)) throw new Error('CPMM_CONTRIBUTION_ACCOUNT_KEY_INVALID');
     return value;
   });
