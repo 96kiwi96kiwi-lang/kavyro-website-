@@ -13,6 +13,7 @@ const receipt = {
   kvroMint: KAVYRO_MINT,
   quoteMint: WRAPPED_SOL_MINT,
   kvroSourceOwner: 'W',
+  rpcProviders: Object.freeze({ transactionOperator: 'primary-rpc', statusOperator: 'status-rpc' }),
   kvroTransferredBaseUnits: 500n,
   lpMintedBaseUnits: 20n,
   slot: 100,
@@ -38,6 +39,7 @@ test('composes historical contribution with independently verified LP ownership'
   assert.equal(result.contributedKvroBaseUnits, 500n);
   assert.equal(result.contributionEvidenceId, 'SIG:P:W');
   assert.equal(result.ownershipEvidenceId, 'OWNERSHIP-EVIDENCE');
+  assert.deepEqual(result.rpcProviders, { transactionOperator: 'primary-rpc', statusOperator: 'status-rpc' });
   assert.equal(result.payoutAuthorized, false);
 });
 

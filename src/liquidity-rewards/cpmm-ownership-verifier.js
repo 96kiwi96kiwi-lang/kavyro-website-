@@ -1,5 +1,14 @@
 import { KAVYRO_MINT, WRAPPED_SOL_MINT } from './config.js';
 
+/** @param {unknown} value */
+function isCanonicalIdentity(value) {
+  return typeof value === 'string' && value.length > 0 && value.trim() === value &&
+    ![...value].some((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+    });
+}
+
 /**
  * Read-only binding between a decoded Raydium CPMM PoolState and a decoded SPL token account.
  * This proves only current LP-token ownership/balance at independently reported RPC slots.
@@ -28,9 +37,8 @@ export function createCpmmOwnershipVerifier(options) {
      * @param {{poolId: string, tokenAccount: string, wallet: string}} request
      */
     verifyCurrentOwnership: async (request) => {
-      if (!request || typeof request.poolId !== 'string' || !request.poolId.trim() ||
-          typeof request.tokenAccount !== 'string' || !request.tokenAccount.trim() ||
-          typeof request.wallet !== 'string' || !request.wallet.trim()) {
+      if (!request || !isCanonicalIdentity(request.poolId) ||
+          !isCanonicalIdentity(request.tokenAccount) || !isCanonicalIdentity(request.wallet)) {
         throw new Error('Invalid CPMM ownership request');
       }
 
@@ -39,10 +47,16 @@ export function createCpmmOwnershipVerifier(options) {
         tokenAccountReader.readTokenAccount(request.tokenAccount),
       ]);
       if (!pool?.exists || !tokenAccount?.exists) throw new Error('Required on-chain account is missing');
+      if (pool.address !== request.poolId || tokenAccount.address !== request.tokenAccount) {
+        throw new Error('On-chain account address does not match ownership request');
+      }
       if (pool.poolType !== 'RAYDIUM_CPMM') throw new Error('Unsupported pool type');
       const canonicalPair = (pool.mintA === KAVYRO_MINT && pool.mintB === WRAPPED_SOL_MINT) ||
         (pool.mintB === KAVYRO_MINT && pool.mintA === WRAPPED_SOL_MINT);
       if (!canonicalPair) throw new Error('Pool mint pair does not match canonical KVRO/WSOL');
+      if (typeof pool.lpMint !== 'string' || !pool.lpMint || pool.lpMint.trim() !== pool.lpMint) {
+        throw new Error('Pool LP mint identity is invalid');
+      }
       if (tokenAccount.mint !== pool.lpMint) throw new Error('Token account mint does not match pool LP mint');
       if (tokenAccount.walletOwner !== request.wallet) throw new Error('Token account owner does not match wallet');
       if (typeof tokenAccount.amountBaseUnits !== 'bigint' || tokenAccount.amountBaseUnits <= 0n) {
