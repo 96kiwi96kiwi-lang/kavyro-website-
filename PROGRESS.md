@@ -17,6 +17,7 @@ Review caught and corrected a stale-branch regression that had narrowed `npm tes
 
 ### Blokace
 
+- PR #56 was merged on 2026-11-09, but its unchecked CI and owner-review acceptance items remain historical evidence gaps; merge is not proof of completion.
 - Merge requires a final-head Actions run with visible executed typecheck/test steps.
 - Payout remains disabled until the official Raydium CPMM pool is independently verified on-chain and the owner explicitly approves activation.
 
