@@ -8,11 +8,11 @@ The obsolete PR #57 branch was not force-pushed. This replacement starts from cu
 
 ### Ověřeno
 
-An equivalent no-force merge tree was verified locally on Node v24.22.1 / npm 11.9.0 before these documentation-only notes:
+Review caught and corrected a stale-branch regression that had narrowed `npm test` to liquidity-only tests. The restored final command includes liquidity, contrast, and homepage/keyboard regressions. An equivalent corrected tree was verified locally on Node v24.22.1 / npm 11.9.0:
 
 - `npm ci --no-audit --no-fund`: PASS.
 - `npm run typecheck`: PASS.
-- `npm test`: PASS, 354 total; 353 passed, 0 failed, 1 skipped because Google Chrome is not installed.
+- `npm test`: PASS with the restored complete command, 354 total; 353 passed, 0 failed, 1 skipped because Google Chrome is not installed.
 - GitHub Actions: NOT YET RUN for the replacement head. A startup failure or a job without executed steps is not a pass.
 
 ### Blokace
