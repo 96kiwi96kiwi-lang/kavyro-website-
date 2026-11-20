@@ -11,6 +11,18 @@ const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('./src/styles.css', import.meta.url), 'utf8');
 const pageUrl = new URL('./index.html', import.meta.url).href;
 
+test('homepage exposes one canonical URL and complete basic social metadata', () => {
+  const description = 'KAVYRO official token information and read-only liquidity reward safety status.';
+  assert.equal((html.match(/<link\b[^>]*\brel="canonical"/gi) ?? []).length, 1);
+  assert.match(html, /<link\b[^>]*\brel="canonical"[^>]*\bhref="https:\/\/kavyrocoin\.com\/"[^>]*>/i);
+  assert.match(html, new RegExp(`<meta\\b[^>]*\\bname="description"[^>]*\\bcontent="${escapeRegExp(description)}"[^>]*>`, 'i'));
+  assert.match(html, /<meta\b[^>]*\bproperty="og:title"[^>]*\bcontent="KAVYRO"[^>]*>/i);
+  assert.match(html, new RegExp(`<meta\\b[^>]*\\bproperty="og:description"[^>]*\\bcontent="${escapeRegExp(description)}"[^>]*>`, 'i'));
+  assert.match(html, /<meta\b[^>]*\bproperty="og:url"[^>]*\bcontent="https:\/\/kavyrocoin\.com\/"[^>]*>/i);
+  assert.match(html, /<meta\b[^>]*\bproperty="og:type"[^>]*\bcontent="website"[^>]*>/i);
+  assert.match(html, /<meta\b[^>]*\bname="twitter:card"[^>]*\bcontent="summary"[^>]*>/i);
+});
+
 /**
  * @param {string} source
  * @param {string} selector
