@@ -193,6 +193,8 @@ function chromeBinary() {
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
     '/usr/local/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
   ]) {
     if (existsSync(candidate)) return candidate;
   }
@@ -568,7 +570,7 @@ const chrome = chromeBinary();
 
 test('skip link works for keyboard and pointer users on a phone and on desktop', {
   timeout: 60_000,
-  skip: chrome ? false : 'Google Chrome is not installed',
+  skip: chrome ? false : 'Chrome or Chromium is not installed',
 }, async (t) => {
   const browser = await launchChrome(chrome);
   try {
