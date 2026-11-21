@@ -1,6 +1,10 @@
 # PR #56 acceptance checklist
 
-This checklist closes feature expansion for draft PR #56. It separates merge acceptance from any future liquidity-reward activation.
+This checklist closes feature expansion for draft PR #56. It separates historical merge evidence from any future liquidity-reward activation.
+
+## Post-merge audit record
+
+PR #56 was merged on 2026-11-09 as merge commit `5607bcf014c37cfe3443f13e43d09e2661c6f215`. The unchecked CI and owner-review items below were not proven by that merge and remain recorded evidence gaps. This note does not retroactively mark them complete, approve a Pool ID, or authorize reward activation.
 
 ## Review baseline
 
@@ -31,7 +35,7 @@ This checklist closes feature expansion for draft PR #56. It separates merge acc
 - [ ] Reviewer confirms the two-provider agreement, signature/slot binding, pool/mint/LP provenance, malformed-evidence rejection, and replay contract.
 - [ ] Reviewer confirms the large accumulated PR has no unrelated or generated-file changes that should be split or discarded.
 
-**Merge decision: HOLD** until all unchecked merge items are satisfied. Do not infer a pass from a runner/startup failure.
+**Historical merge gate: NOT COMPLETED ON RECORD.** PR #56 was merged while the items above remained unchecked. Do not infer a pass from the merge commit or a runner/startup failure.
 
 ## Separate live-activation blockers
 

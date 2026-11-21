@@ -11,6 +11,18 @@ const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('./src/styles.css', import.meta.url), 'utf8');
 const pageUrl = new URL('./index.html', import.meta.url).href;
 
+test('homepage exposes one canonical URL and complete basic social metadata', () => {
+  const description = 'KAVYRO official token information and read-only liquidity reward safety status.';
+  assert.equal((html.match(/<link\b[^>]*\brel="canonical"/gi) ?? []).length, 1);
+  assert.match(html, /<link\b[^>]*\brel="canonical"[^>]*\bhref="https:\/\/kavyrocoin\.com\/"[^>]*>/i);
+  assert.match(html, new RegExp(`<meta\\b[^>]*\\bname="description"[^>]*\\bcontent="${escapeRegExp(description)}"[^>]*>`, 'i'));
+  assert.match(html, /<meta\b[^>]*\bproperty="og:title"[^>]*\bcontent="KAVYRO"[^>]*>/i);
+  assert.match(html, new RegExp(`<meta\\b[^>]*\\bproperty="og:description"[^>]*\\bcontent="${escapeRegExp(description)}"[^>]*>`, 'i'));
+  assert.match(html, /<meta\b[^>]*\bproperty="og:url"[^>]*\bcontent="https:\/\/kavyrocoin\.com\/"[^>]*>/i);
+  assert.match(html, /<meta\b[^>]*\bproperty="og:type"[^>]*\bcontent="website"[^>]*>/i);
+  assert.match(html, /<meta\b[^>]*\bname="twitter:card"[^>]*\bcontent="summary"[^>]*>/i);
+});
+
 /**
  * @param {string} source
  * @param {string} selector
@@ -181,6 +193,8 @@ function chromeBinary() {
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
     '/usr/local/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
   ]) {
     if (existsSync(candidate)) return candidate;
   }
@@ -556,7 +570,7 @@ const chrome = chromeBinary();
 
 test('skip link works for keyboard and pointer users on a phone and on desktop', {
   timeout: 60_000,
-  skip: chrome ? false : 'Google Chrome is not installed',
+  skip: chrome ? false : 'Chrome or Chromium is not installed',
 }, async (t) => {
   const browser = await launchChrome(chrome);
   try {

@@ -1,5 +1,30 @@
 # Progress
 
+## 2026-11-15
+
+### Aktuální stav
+
+The obsolete PR #57 branch was not force-pushed. This replacement starts from current `main` `dab5c075e4cb7b0c226ea7bdfe5eae4f05d3ac4f` and carries only its Node 24 / current Actions CI maintenance. The read-only liquidity evidence contract is unchanged. Canonical KVRO mint remains `8KuWwmApUWyVBVraBdhknQwRuanw2qUwXzAJorqMAHvE`; no Pool ID, signing path, transaction broadcast, or payout activation was added.
+
+### Ověřeno
+
+Review caught and corrected a stale-branch regression that had narrowed `npm test` to liquidity-only tests. The restored final command includes liquidity, contrast, and homepage/keyboard regressions. An equivalent corrected tree was verified locally on Node v24.22.1 / npm 11.9.0:
+
+- `npm ci --no-audit --no-fund`: PASS.
+- `npm run typecheck`: PASS.
+- `npm test`: PASS with the restored complete command, 354 total; 353 passed, 0 failed, 1 skipped because Google Chrome is not installed.
+- GitHub Actions: NOT YET RUN for the replacement head. A startup failure or a job without executed steps is not a pass.
+
+### Blokace
+
+- PR #56 was merged on 2026-11-09, but its unchecked CI and owner-review acceptance items remain historical evidence gaps; merge is not proof of completion.
+- Merge requires a final-head Actions run with visible executed typecheck/test steps.
+- Payout remains disabled until the official Raydium CPMM pool is independently verified on-chain and the owner explicitly approves activation.
+
+### Další priorita
+
+Review the replacement CI-only diff and final-head Actions jobs; do not add an unverified Pool ID or enable payout.
+
 ## 2026-11-09T23:18:32Z
 
 ### Datum a čas
